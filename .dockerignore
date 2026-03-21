@@ -1,0 +1,6 @@
+# Docker ignore - keep image lean
+.git
+.gitignore
+.dockerignore
+docker-compose.yml
+*.md
