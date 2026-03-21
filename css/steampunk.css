@@ -1,0 +1,210 @@
+/* ============================================================
+   STEAMPUNK THEME - Ironveil Chronicles
+   ============================================================ */
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--wood-dark); }
+::-webkit-scrollbar-thumb { background: var(--brass-dark); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--brass); }
+
+/* Panel headers with decorative lines */
+.panel-header {
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--brass);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--brass-dark);
+  margin-bottom: 4px;
+  position: relative;
+}
+
+.panel-header::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(to right, var(--brass-dark), transparent);
+  margin-top: 2px;
+}
+
+/* Speed buttons */
+#speed-buttons {
+  display: flex;
+  gap: 3px;
+}
+
+.speed-btn {
+  background: var(--wood-dark);
+  border: 1px solid var(--brass-dark);
+  color: var(--text-dim);
+  width: 32px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 10px;
+  border-radius: 3px;
+  transition: all 0.15s;
+  font-family: var(--font-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.speed-btn:hover {
+  background: var(--wood-light);
+  border-color: var(--brass);
+  color: var(--brass-light);
+}
+
+.speed-btn.active {
+  background: var(--brass-dark);
+  border-color: var(--brass);
+  color: var(--text-bright);
+}
+
+/* Menu / action buttons */
+.menu-btn {
+  background: var(--wood-dark);
+  border: 1px solid var(--brass-dark);
+  color: var(--text-main);
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font-main);
+  font-size: 11px;
+  border-radius: 3px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.menu-btn:hover {
+  background: var(--wood-light);
+  border-color: var(--brass);
+  color: var(--brass-light);
+}
+
+/* Trade action buttons */
+.buy-btn, .sell-btn {
+  padding: 3px 10px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: var(--font-main);
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.buy-btn {
+  background: rgba(95, 202, 95, 0.15);
+  border-color: var(--green-ok);
+  color: var(--green-ok);
+}
+
+.buy-btn:hover {
+  background: rgba(95, 202, 95, 0.3);
+}
+
+.buy-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sell-btn {
+  background: rgba(224, 80, 80, 0.15);
+  border-color: var(--red-warn);
+  color: var(--red-warn);
+}
+
+.sell-btn:hover {
+  background: rgba(224, 80, 80, 0.3);
+}
+
+.sell-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Gear decoration for top bar */
+#top-bar::before {
+  content: '⚙';
+  color: var(--brass-dark);
+  font-size: 22px;
+  opacity: 0.4;
+  margin-right: 4px;
+}
+
+#top-bar::after {
+  content: '⚙';
+  color: var(--brass-dark);
+  font-size: 22px;
+  opacity: 0.4;
+  margin-left: 4px;
+}
+
+/* Route list items */
+#route-list li {
+  font-size: 11px;
+  padding: 5px 6px;
+  border-bottom: 1px solid rgba(90,70,20,0.2);
+  color: var(--text-dim);
+}
+
+.route-item { color: var(--text-main); }
+.route-item .route-name { color: var(--brass-light); font-size: 11px; font-weight: bold; }
+.route-item .route-detail { font-size: 10px; color: var(--text-dim); }
+
+/* Category badges */
+.cat-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  border: 1px solid;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.cat-raw       { border-color: #7a5c2a; color: #c89a50; background: rgba(122,92,42,0.15); }
+.cat-processed { border-color: #3a5a7a; color: #60a0d0; background: rgba(58,90,122,0.15); }
+.cat-finished  { border-color: #5a3a7a; color: #a060d0; background: rgba(90,58,122,0.15); }
+
+/* Production chain tooltip */
+.recipe-info {
+  font-size: 10px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+/* Animated spinning gear (for loading/processing) */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.gear-spin {
+  display: inline-block;
+  animation: spin 3s linear infinite;
+}
+
+/* Map city node pulse animation */
+@keyframes cityPulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* Save/load buttons area */
+#save-btns {
+  display: flex;
+  gap: 4px;
+}
+
+/* Number formatting helpers */
+.num-pos { color: var(--green-ok); }
+.num-neg { color: var(--red-warn); }
+
+/* Divider */
+.divider {
+  border: none;
+  border-top: 1px solid var(--brass-dark);
+  margin: 6px 0;
+}

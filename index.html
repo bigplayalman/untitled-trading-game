@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ironveil Chronicles</title>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/steampunk.css">
+</head>
+<body>
+  <div id="game-container">
+
+    <!-- Top Bar -->
+    <header id="top-bar">
+      <div id="player-info">
+        <span class="stat-display">
+          <span class="stat-label">Gold</span>
+          <span class="stat-value" id="ui-gold">50</span>
+        </span>
+        <span class="stat-display">
+          <span class="stat-label">Tier</span>
+          <span class="stat-value" id="ui-tier">Peddler</span>
+        </span>
+      </div>
+      <div id="title-block">
+        <span id="game-title">Ironveil Chronicles</span>
+      </div>
+      <div id="time-controls">
+        <span class="stat-display">
+          <span class="stat-label">Date</span>
+          <span class="stat-value" id="ui-date">Day 1, Year 1</span>
+        </span>
+        <div id="speed-buttons">
+          <button class="speed-btn" data-speed="0" title="Pause">&#9646;&#9646;</button>
+          <button class="speed-btn active" data-speed="1" title="1x">&#9654;</button>
+          <button class="speed-btn" data-speed="2" title="2x">&#9654;&#9654;</button>
+          <button class="speed-btn" data-speed="5" title="5x">&#9654;&#9654;&#9654;</button>
+        </div>
+        <div id="save-btns">
+          <button id="btn-save" class="menu-btn">Save</button>
+          <button id="btn-load" class="menu-btn">Load</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Area -->
+    <main id="main-content">
+
+      <!-- Left Panel -->
+      <aside id="left-panel">
+        <div class="panel-section">
+          <h3 class="panel-header">Cities</h3>
+          <ul id="city-list"></ul>
+        </div>
+        <div class="panel-section">
+          <h3 class="panel-header">Fleet</h3>
+          <ul id="fleet-list">
+            <li class="empty-msg">No vehicles yet.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Center View -->
+      <section id="center-view">
+
+        <!-- Map View -->
+        <div id="map-view">
+          <canvas id="game-map"></canvas>
+          <div id="map-tooltip" class="hidden"></div>
+        </div>
+
+        <!-- City View (hidden until city selected) -->
+        <div id="city-view" class="hidden">
+          <div id="city-header">
+            <button id="btn-back-map" class="menu-btn">&larr; Map</button>
+            <div>
+              <h2 id="city-name">City Name</h2>
+              <p id="city-description"></p>
+            </div>
+            <div id="city-stats">
+              <span class="stat-display"><span class="stat-label">Pop.</span><span id="city-pop" class="stat-value">0</span></span>
+              <span class="stat-display"><span class="stat-label">Wealth</span><span id="city-wealth" class="stat-value">0</span></span>
+            </div>
+          </div>
+
+          <div class="city-tabs">
+            <button class="tab-btn active" data-tab="market">Market</button>
+            <button class="tab-btn" data-tab="buildings">Buildings</button>
+          </div>
+
+          <!-- Market Tab -->
+          <div id="tab-market" class="tab-content">
+            <div id="market-controls">
+              <label>Quantity: <input type="number" id="trade-qty" value="1" min="1" max="9999" /></label>
+            </div>
+            <table id="market-table">
+              <thead>
+                <tr>
+                  <th>Good</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Stock</th>
+                  <th>Trend</th>
+                  <th colspan="2">Trade</th>
+                </tr>
+              </thead>
+              <tbody id="market-body"></tbody>
+            </table>
+          </div>
+
+          <!-- Buildings Tab -->
+          <div id="tab-buildings" class="tab-content hidden">
+            <div id="buildings-grid"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Right Panel -->
+      <aside id="right-panel">
+        <div class="panel-section">
+          <h3 class="panel-header">Active Routes</h3>
+          <ul id="route-list">
+            <li class="empty-msg">No routes yet.</li>
+          </ul>
+        </div>
+        <div class="panel-section">
+          <h3 class="panel-header">Journal</h3>
+          <div id="notifications"></div>
+        </div>
+        <div class="panel-section">
+          <h3 class="panel-header">Quest</h3>
+          <div id="quest-display">
+            <p id="quest-title" class="quest-title"></p>
+            <p id="quest-text"></p>
+            <div id="quest-progress"></div>
+          </div>
+        </div>
+      </aside>
+
+    </main>
+
+    <!-- Bottom: Inventory -->
+    <footer id="bottom-bar">
+      <h3 class="panel-header">Inventory</h3>
+      <div id="player-inventory"></div>
+    </footer>
+
+    <!-- Dialogue Overlay -->
+    <div id="dialogue-overlay" class="hidden">
+      <div id="dialogue-box">
+        <div id="dialogue-portrait">&#129302;</div>
+        <div id="dialogue-content">
+          <div id="dialogue-speaker"></div>
+          <div id="dialogue-text"></div>
+        </div>
+        <div id="dialogue-choices"></div>
+      </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
