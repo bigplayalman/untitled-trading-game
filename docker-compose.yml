@@ -5,8 +5,6 @@ services:
       dockerfile: Dockerfile
     image: ironveil-chronicles:latest
     container_name: ironveil
-    ports:
-      - "8080:80"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
