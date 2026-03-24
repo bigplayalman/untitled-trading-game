@@ -31,7 +31,7 @@ export function createInitialState() {
     player: {
       gold: 50,
       inventory: {},       // { goodId: quantity }
-      cargoCapacity: 20,   // starting hand-cart capacity (units)
+      cargoCapacity: 100,  // starting hand-cart capacity (units)
       reputation: {},      // { cityId: 0-100 }
       currentCityId: 'cogsworth',
       tier: 0,             // 0=Peddler, 1=Merchant, 2=Manufacturer, 3=Magnate, 4=Governor, 5=King

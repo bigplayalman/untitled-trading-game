@@ -40,20 +40,18 @@ export class Market {
     const currentLoad = this._getInventoryWeight(player.inventory);
     const addWeight   = good.weight * qty;
     if (currentLoad + addWeight > player.cargoCapacity) {
-      const remaining = player.cargoCapacity - currentLoad;
-      return { ok: false, message: `Not enough cargo space. Remaining: ${remaining} units.` };
+      const remaining = Math.floor((player.cargoCapacity - currentLoad) / good.weight);
+      return { ok: false, message: `Not enough cargo space. Can carry ${remaining} more ${good.name}.` };
     }
 
-    const cost = city.playerBuys(goodId, qty);
-
-    // Check gold
+    // Check gold BEFORE touching city stock
+    const cost = city.getBuyPrice(goodId) * qty;
     if (player.gold < cost) {
-      // Undo the stock removal
-      city.inventory[goodId] = (city.inventory[goodId] ?? 0) + qty;
-      return { ok: false, message: `Not enough gold. Need ${cost}g, have ${player.gold}g.` };
+      return { ok: false, message: `Not enough gold. Need ${cost}g, have ${Math.floor(player.gold)}g.` };
     }
 
-    // Commit transaction
+    // All checks passed — commit transaction
+    city.playerBuys(goodId, qty);
     player.gold -= cost;
     player.inventory[goodId] = (player.inventory[goodId] ?? 0) + qty;
 

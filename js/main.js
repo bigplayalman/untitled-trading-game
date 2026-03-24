@@ -92,6 +92,7 @@ timeMgr.onDay(dateObj => {
   state.stats.daysSurvived++;
   player.checkTierUp();
   saveLoad.checkAutoSave(dateObj);
+  ui.markMarketDirty(); // refresh market prices once per day
 });
 
 // Tier up event
@@ -136,6 +137,7 @@ bus.subscribe('ui:load', () => {
   document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
   const activeSpeed = timeMgr.paused ? 0 : timeMgr.speed;
   document.querySelector(`.speed-btn[data-speed="${activeSpeed}"]`)?.classList.add('active');
+  ui.markMarketDirty();
   ui.toast('Game loaded.', 'good');
 });
 

@@ -18,6 +18,11 @@ export class UIManager {
 
     this._currentView   = 'map';
     this._currentCityId = null;
+    this._marketDirty   = false; // only redraw table when data changed
+    this._lastGold      = -1;
+    this._lastTier      = -1;
+    this._lastDate      = '';
+    this._lastInvHash   = '';
 
     this._els = {
       gold:         document.getElementById('ui-gold'),
@@ -107,12 +112,12 @@ export class UIManager {
         result = this._market.sell(this._currentCityId, goodId, qty);
       }
       this.toast(result.message, result.ok ? 'good' : 'bad');
-      if (result.ok) this._refreshMarket(this._currentCityId);
+      if (result.ok) this._marketDirty = true;
     });
 
     // Bus events for reactive updates
-    this._bus.subscribe('market:buy',  () => this._refreshTopBar());
-    this._bus.subscribe('market:sell', () => this._refreshTopBar());
+    this._bus.subscribe('market:buy',  () => { this._refreshTopBar(); this._marketDirty = true; });
+    this._bus.subscribe('market:sell', () => { this._refreshTopBar(); this._marketDirty = true; });
     this._bus.subscribe('player:tierUp', ({ tierName }) => {
       this.toast(`Tier up! You are now a ${tierName}!`, 'good');
     });
@@ -125,7 +130,11 @@ export class UIManager {
     this._refreshTopBar();
     this._refreshInventory();
     if (this._currentView === 'city' && this._currentCityId) {
-      this._refreshMarket(this._currentCityId);
+      // Only rebuild the table when something actually changed
+      if (this._marketDirty) {
+        this._refreshMarket(this._currentCityId);
+        this._marketDirty = false;
+      }
       const city = this._cities.get(this._currentCityId);
       if (city) {
         this._els.cityPop.textContent    = city.population.toLocaleString();
@@ -134,16 +143,38 @@ export class UIManager {
     }
   }
 
+  /** Call this on each game-day tick so prices refresh visually */
+  markMarketDirty() {
+    this._marketDirty = true;
+  }
+
   _refreshTopBar() {
-    this._els.gold.textContent = Math.floor(this._state.player.gold).toLocaleString() + 'g';
-    this._els.tier.textContent = TIER_NAMES[this._state.player.tier];
-    this._els.date.textContent = this._time.getDateString();
+    const gold = Math.floor(this._state.player.gold);
+    const tier = this._state.player.tier;
+    const date = this._time.getDateString();
+    if (gold !== this._lastGold) {
+      this._els.gold.textContent = gold.toLocaleString() + 'g';
+      this._lastGold = gold;
+    }
+    if (tier !== this._lastTier) {
+      this._els.tier.textContent = TIER_NAMES[tier];
+      this._lastTier = tier;
+    }
+    if (date !== this._lastDate) {
+      this._els.date.textContent = date;
+      this._lastDate = date;
+    }
   }
 
   _refreshInventory() {
-    const inv = this._state.player.inventory;
+    const inv   = this._state.player.inventory;
     const cargo = this._player.getCargoUsed();
     const cap   = this._player.getCargoCapacity();
+
+    // Build a quick hash to avoid repainting when nothing changed
+    const hash = `${cargo}/${cap}:` + Object.entries(inv).map(([id, q]) => `${id}=${q}`).join(',');
+    if (hash === this._lastInvHash) return;
+    this._lastInvHash = hash;
 
     let html = `<span class="inventory-item"><span class="item-qty">Cargo: ${cargo}/${cap}</span></span>`;
 
@@ -234,7 +265,7 @@ export class UIManager {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById('tab-market').classList.remove('hidden');
 
-    this._refreshMarket(cityId);
+    this._marketDirty = true;
     this._refreshCityList(cityId);
 
     // Player travels here
