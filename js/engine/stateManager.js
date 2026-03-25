@@ -30,7 +30,15 @@ export function createInitialState() {
   return {
     player: {
       gold: 50,
-      reputation: {},      // { cityId: 0-100 }
+      reputation: {
+        cogsworth:   10,   // home base — small head start
+        ironhaven:    0,
+        verdania:     0,
+        steamport:    0,
+        crystaldeep:  0,
+        millhurst:    0,
+        windhollow:   0,
+      },
       currentCityId: 'cogsworth',
       tier: 0,             // 0=Peddler, 1=Merchant, 2=Manufacturer, 3=Magnate, 4=Governor, 5=King
     },

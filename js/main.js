@@ -104,9 +104,18 @@ bus.subscribe('market:buy', ({ goodId, qty, cost, vehicleId }) => {
   ui.addNotification(`Bought ${qty}x ${good?.name} for ${cost}g → ${vehicle?.name ?? ''}`, 'info');
 });
 
-bus.subscribe('market:sell', ({ goodId, qty, earned }) => {
+bus.subscribe('market:sell', ({ goodId, qty, earned, bonusEarned, repGain, priceRatio }) => {
   const good = GOODS[goodId];
-  ui.addNotification(`Sold ${qty}x ${good?.name} for ${earned}g`, 'good');
+  const bonusStr  = bonusEarned > 0 ? ` (+${bonusEarned}g)` : '';
+  const demandStr = priceRatio > 1.3 ? ' 🔥 high demand' : '';
+  ui.addNotification(`Sold ${qty}x ${good?.name} for ${earned}g${bonusStr}${demandStr}`, 'good');
+});
+
+// Reputation events → journal + toast
+bus.subscribe('reputation:tierUp', ({ cityId, tierName, color }) => {
+  const cityName = cities.get(cityId)?.name ?? cityId;
+  ui.toast(`${cityName} now sees you as: ${tierName}!`, 'good');
+  ui.addNotification(`Reputation in ${cityName}: ${tierName}`, 'good');
 });
 
 // Vehicle events → journal

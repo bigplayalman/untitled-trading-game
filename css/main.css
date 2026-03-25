@@ -189,6 +189,52 @@ html, body {
   margin-left: auto;
 }
 
+/* ---- CITY REPUTATION DISPLAY ---- */
+#city-rep-display {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
+#city-rep-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+#city-rep-tier {
+  font-weight: bold;
+  font-size: 11px;
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+#city-rep-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: var(--wood-dark);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(90,70,20,0.3);
+}
+
+#city-rep-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease, background 0.4s ease;
+  background: var(--brass);
+  width: 0%;
+}
+
+#city-rep-val {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 .city-tabs {
   display: flex;
   gap: 0;
@@ -268,6 +314,58 @@ html, body {
 .trend-up   { color: var(--green-ok); }
 .trend-down { color: var(--red-warn); }
 .trend-flat { color: var(--text-dim); }
+
+/* ---- MARKET REPUTATION LOCK ---- */
+.market-row-locked td {
+  opacity: 0.45;
+  color: var(--text-dim) !important;
+}
+
+.market-row-locked .cat-badge {
+  opacity: 0.5;
+}
+
+.access-locked {
+  font-size: 10px;
+  color: var(--red-warn) !important;
+  opacity: 1 !important;
+  line-height: 1.4;
+}
+
+.access-locked small {
+  color: var(--text-dim);
+  display: block;
+}
+
+.access-ok {
+  color: var(--green-ok);
+  font-size: 12px;
+}
+
+/* ---- REP GAIN PREVIEW in sell rows ---- */
+.rep-gain {
+  color: var(--text-dim);
+  font-size: 9px;
+  margin-left: 4px;
+}
+
+.rep-gain-high {
+  color: var(--green-ok);
+  font-size: 9px;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+/* ---- TRANSPORT ROW LOCKED ---- */
+.transport-row-locked {
+  opacity: 0.45;
+}
+
+.transport-row-locked .buy-btn,
+.transport-row-locked .sell-btn {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* ---- BOTTOM BAR ---- */
 #bottom-bar {

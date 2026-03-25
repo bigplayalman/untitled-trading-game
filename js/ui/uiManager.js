@@ -7,8 +7,10 @@
  * Buying and selling happen in the Vehicles tab.
  */
 
-import { GOODS }      from '../economy/goods.js';
-import { TIER_NAMES } from '../engine/stateManager.js';
+import { GOODS }                              from '../economy/goods.js';
+import { TIER_NAMES }                         from '../engine/stateManager.js';
+import { getRepForCity, getRepTier,
+         getRepProgress, canBuy }             from '../player/reputation.js';
 
 export class UIManager {
   constructor(state, cities, market, timeManager, player, bus) {
@@ -26,6 +28,7 @@ export class UIManager {
     this._lastTier      = -1;
     this._lastDate      = '';
     this._lastDockedHash = '';
+    this._lastRepHash    = '';
 
     this._vehicleUI  = null;
     this._vehicleMgr = null;
@@ -43,6 +46,9 @@ export class UIManager {
       cityWealth:      document.getElementById('city-wealth'),
       marketBody:      document.getElementById('market-body'),
       dockedVehicles:  document.getElementById('docked-vehicles'),
+      cityRepTier:     document.getElementById('city-rep-tier'),
+      cityRepBar:      document.getElementById('city-rep-bar'),
+      cityRepVal:      document.getElementById('city-rep-val'),
       notifications:   document.getElementById('notifications'),
       questTitle:      document.getElementById('quest-title'),
       questText:       document.getElementById('quest-text'),
@@ -110,9 +116,18 @@ export class UIManager {
     this._bus.subscribe('save:success',  () => this.toast('Game saved.', 'good'));
     this._bus.subscribe('save:failed',   () => this.toast('Save failed!', 'bad'));
     this._bus.subscribe('ui:toast',      ({ message, type }) => this.toast(message, type ?? 'info'));
-    this._bus.subscribe('vehicle:arrived', () => { this._lastDockedHash = ''; });
+    this._bus.subscribe('vehicle:arrived',    () => { this._lastDockedHash = ''; });
     this._bus.subscribe('vehicle:dispatched', () => { this._lastDockedHash = ''; });
     this._bus.subscribe('vehicle:purchased',  () => { this._lastDockedHash = ''; });
+
+    // Reputation events — refresh market and rep display
+    this._bus.subscribe('reputation:gained', ({ cityId }) => {
+      if (cityId === this._currentCityId) {
+        this._marketDirty = true;
+        this._lastRepHash = '';
+        if (this._vehicleUI) this._vehicleUI.markDirty();
+      }
+    });
   }
 
   /** Called every render frame */
@@ -125,6 +140,7 @@ export class UIManager {
         this._refreshMarket(this._currentCityId);
         this._marketDirty = false;
       }
+      this._refreshCityRep(this._currentCityId);
       const city = this._cities.get(this._currentCityId);
       if (city) {
         this._els.cityPop.textContent    = city.population.toLocaleString();
@@ -134,6 +150,25 @@ export class UIManager {
   }
 
   markMarketDirty() { this._marketDirty = true; }
+
+  // ── City Reputation Display ──────────────────────────────────
+
+  _refreshCityRep(cityId) {
+    if (!this._els.cityRepTier || !cityId) return;
+
+    const rep     = getRepForCity(this._state, cityId);
+    const tier    = getRepTier(rep);
+    const progress = getRepProgress(rep);
+    const hash    = `${cityId}:${Math.floor(rep)}`;
+    if (hash === this._lastRepHash) return;
+    this._lastRepHash = hash;
+
+    this._els.cityRepTier.textContent      = tier.name;
+    this._els.cityRepTier.style.color      = tier.color;
+    this._els.cityRepBar.style.width       = progress + '%';
+    this._els.cityRepBar.style.background  = tier.color;
+    this._els.cityRepVal.textContent       = Math.floor(rep) + '/100';
+  }
 
   // ── Top Bar ──────────────────────────────────────────────────
 
@@ -204,16 +239,28 @@ export class UIManager {
     const city = this._cities.get(cityId);
     if (!city) return;
 
+    const rep = getRepForCity(this._state, cityId);
+
     const rows = Object.values(GOODS).map(good => {
-      const price     = city.getBuyPrice(good.id);
-      const sellPrice = city.getSellPrice(good.id);
-      const stock     = city.inventory[good.id] ?? 0;
-      const trend     = city.priceEngine.getTrend(good.id);
-      const priceClass= city.priceEngine.getPriceClass(good.id);
+      const price      = city.getBuyPrice(good.id);
+      const sellPrice  = city.getSellPrice(good.id);
+      const stock      = city.inventory[good.id] ?? 0;
+      const trend      = city.priceEngine.getTrend(good.id);
+      const priceClass = city.priceEngine.getPriceClass(good.id);
+      const trendIcon  = trend === 'up' ? '▲' : trend === 'down' ? '▼' : '─';
 
-      const trendIcon = trend === 'up' ? '▲' : trend === 'down' ? '▼' : '─';
+      const buyCheck  = canBuy(rep, good);
+      const locked    = !buyCheck.ok;
+      const rowClass  = locked ? 'market-row-locked' : '';
 
-      return `<tr>
+      let accessCell;
+      if (locked) {
+        accessCell = `<td class="access-locked">🔒 ${buyCheck.minRep} rep<br><small>${buyCheck.tierName}</small></td>`;
+      } else {
+        accessCell = `<td class="access-ok">✓</td>`;
+      }
+
+      return `<tr class="${rowClass}">
         <td>${good.icon} ${good.name}</td>
         <td><span class="cat-badge cat-${good.category}">${good.category}</span></td>
         <td class="price-${priceClass}">${price}g
@@ -222,6 +269,7 @@ export class UIManager {
         <td>${stock}</td>
         <td><span class="wt-badge">${good.weight} wt</span></td>
         <td class="trend-${trend}">${trendIcon}</td>
+        ${accessCell}
       </tr>`;
     }).join('');
 
@@ -273,6 +321,7 @@ export class UIManager {
 
     this._marketDirty = true;
     this._lastDockedHash = '';
+    this._lastRepHash    = '';
     if (this._vehicleUI) this._vehicleUI.markDirty();
     this._refreshCityList(cityId);
     this._player.travelTo(cityId);

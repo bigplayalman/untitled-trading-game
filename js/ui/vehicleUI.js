@@ -9,9 +9,11 @@
  *   - Vehicle shop
  */
 
-import { GOODS }         from '../economy/goods.js';
-import { VEHICLE_TYPES } from '../player/vehicles.js';
-import { CONNECTIONS }   from '../world/worldMap.js';
+import { GOODS }                                from '../economy/goods.js';
+import { VEHICLE_TYPES }                        from '../player/vehicles.js';
+import { CONNECTIONS }                          from '../world/worldMap.js';
+import { canBuy, canSell, getRepForCity,
+         gainFromTrade, getRepTier }             from '../player/reputation.js';
 
 export class VehicleUI {
   /**
@@ -147,12 +149,28 @@ export class VehicleUI {
       const city = this._cities.get(cityId);
 
       // ── Buy section (city market → vehicle) ──────────────────
+      const rep = getRepForCity(this._state, cityId);
+
       const buyRows = Object.values(GOODS).map(good => {
-        const stock    = city?.inventory[good.id] ?? 0;
-        const price    = city?.getBuyPrice(good.id) ?? good.basePrice;
-        const canLoad  = v.maxLoadable(good.id);
-        const maxQty   = Math.min(stock, canLoad);
-        if (stock === 0) return ''; // skip out-of-stock
+        const stock      = city?.inventory[good.id] ?? 0;
+        const price      = city?.getBuyPrice(good.id) ?? good.basePrice;
+        const buyCheck   = canBuy(rep, good);
+        const locked     = !buyCheck.ok;
+        const canLoad    = v.maxLoadable(good.id);
+        const maxQty     = Math.min(stock, canLoad);
+
+        if (locked) {
+          // Show dimmed locked row — player can see what they're working towards
+          return `<div class="transport-row transport-row-locked">
+            <span class="tr-good">🔒 ${good.icon} ${good.name}
+              <span class="tr-meta">Requires ${buyCheck.minRep} rep (${buyCheck.tierName}) • ${good.weight}wt</span>
+            </span>
+            <input type="number" class="transport-qty-input" value="1" disabled>
+            <button class="buy-btn" disabled>Locked</button>
+          </div>`;
+        }
+
+        if (stock === 0) return ''; // skip out-of-stock unlocked goods
         return `<div class="transport-row">
           <span class="tr-good">${good.icon} ${good.name}
             <span class="tr-meta">${stock} in stock • ${price}g • ${good.weight}wt each</span>
@@ -170,11 +188,33 @@ export class VehicleUI {
       const sellRows = transportEntries.length === 0
         ? '<p class="empty-msg">Vehicle transport is empty.</p>'
         : transportEntries.map(([goodId, qty]) => {
-            const good      = GOODS[goodId];
-            const sellPrice = city?.getSellPrice(goodId) ?? good?.basePrice ?? 0;
+            const good       = GOODS[goodId];
+            const sellPrice  = city?.getSellPrice(goodId) ?? good?.basePrice ?? 0;
+            const sellCheck  = canSell(rep, good ?? {});
+            const sellLocked = !sellCheck.ok;
+
+            // Rep gain preview for sells
+            const priceRatio  = sellPrice / (good?.basePrice || 1);
+            const repGain     = gainFromTrade(good?.category ?? 'raw', priceRatio, true);
+            const repGainStr  = `+${repGain.toFixed(1)} rep`;
+            const demandHigh  = priceRatio > 1.3;
+            const repGainClass = demandHigh ? 'rep-gain-high' : 'rep-gain';
+
+            if (sellLocked) {
+              return `<div class="transport-row transport-row-locked">
+                <span class="tr-good">🔒 ${good?.icon ?? ''} ${good?.name ?? goodId}
+                  <span class="tr-meta">${qty} on board • Requires ${sellCheck.minRepSell} rep to sell here</span>
+                </span>
+                <input type="number" class="transport-qty-input" value="${qty}" disabled>
+                <button class="sell-btn" disabled>Locked</button>
+              </div>`;
+            }
+
             return `<div class="transport-row">
               <span class="tr-good">${good?.icon ?? ''} ${good?.name ?? goodId}
-                <span class="tr-meta">${qty} on board • ${sellPrice}g each • ${good?.weight ?? 1}wt</span>
+                <span class="tr-meta">${qty} on board • ${sellPrice}g each • ${good?.weight ?? 1}wt
+                  <span class="${repGainClass}">${repGainStr}${demandHigh ? ' ▲' : ''}</span>
+                </span>
               </span>
               <input type="number" id="sell-qty-${v.id}-${goodId}"
                 class="transport-qty-input" value="${qty}" min="1" max="${qty}">
