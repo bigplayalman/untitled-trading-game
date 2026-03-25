@@ -54,6 +54,7 @@ export class UIManager {
       cityRepVal:      document.getElementById('city-rep-val'),
       cityOverview:    document.getElementById('city-overview'),
       marketTradeBar:  document.getElementById('market-trade-bar'),
+      fleetMenuPanel:  document.getElementById('fleet-menu-panel'),
       notifications:   document.getElementById('notifications'),
       questTitle:      document.getElementById('quest-title'),
       questText:       document.getElementById('quest-text'),
@@ -86,6 +87,8 @@ export class UIManager {
 
     // Back to map
     document.getElementById('btn-back-map').addEventListener('click', () => this.showMap());
+    document.getElementById('btn-menu-map')?.addEventListener('click', () => this.showMap());
+    document.getElementById('btn-menu-fleet')?.addEventListener('click', () => this.toggleFleetMenu());
 
     if (this._els.cityModal) {
       this._els.cityModal.addEventListener('click', e => {
@@ -93,8 +96,16 @@ export class UIManager {
       });
     }
 
+    document.addEventListener('click', e => {
+      const fleetBtn = document.getElementById('btn-menu-fleet');
+      if (!this._els.fleetMenuPanel || this._els.fleetMenuPanel.classList.contains('hidden')) return;
+      if (this._els.fleetMenuPanel.contains(e.target) || fleetBtn?.contains(e.target)) return;
+      this.hideFleetMenu();
+    });
+
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && this._cityModalOpen) this.showMap();
+      if (e.key === 'Escape' && !this._els.fleetMenuPanel?.classList.contains('hidden')) this.hideFleetMenu();
     });
 
     // Tab switching
@@ -525,7 +536,9 @@ export class UIManager {
     this._currentCityId = null;
     this._showingCityOverview = false;
     this._els.cityModal?.classList.add('hidden');
+    this.hideFleetMenu(false);
     this._refreshCityList(this._player.currentCityId);
+    this._setActiveTopMenu('map');
   }
 
   showCity(cityId) {
@@ -533,6 +546,8 @@ export class UIManager {
     if (!city) return;
     this._cityModalOpen = true;
     this._currentCityId = cityId;
+    this.hideFleetMenu(false);
+    this._setActiveTopMenu('map');
 
     this._els.cityModal?.classList.remove('hidden');
 
@@ -565,6 +580,25 @@ export class UIManager {
     if (this._vehicleUI) this._vehicleUI.markDirty();
     this._refreshCityList(cityId);
     this._player.travelTo(cityId);
+  }
+
+  toggleFleetMenu() {
+    if (this._els.fleetMenuPanel?.classList.contains('hidden')) {
+      this._els.fleetMenuPanel.classList.remove('hidden');
+      this._setActiveTopMenu('fleet');
+      return;
+    }
+    this.hideFleetMenu();
+  }
+
+  hideFleetMenu(resetMenu = true) {
+    this._els.fleetMenuPanel?.classList.add('hidden');
+    if (resetMenu) this._setActiveTopMenu('map');
+  }
+
+  _setActiveTopMenu(active) {
+    document.getElementById('btn-menu-map')?.classList.toggle('active', active === 'map');
+    document.getElementById('btn-menu-fleet')?.classList.toggle('active', active === 'fleet');
   }
 
   _refreshCityList(activeCityId) {

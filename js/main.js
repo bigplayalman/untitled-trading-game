@@ -139,6 +139,16 @@ bus.subscribe('vehicle:arrived', ({ vehicleName, cityName, hasGoods }) => {
   ui.toast(msg, 'good');
 });
 
+bus.subscribe('player:travel', ({ from, to, path, totalDistance }) => {
+  const fromName = cities.get(from)?.name ?? from;
+  const toName   = cities.get(to)?.name ?? to;
+  const pathNames = (path ?? []).map(id => cities.get(id)?.name ?? id).join(' → ');
+  const msg = totalDistance > 0
+    ? `Travelled from ${fromName} to ${toName} via ${pathNames} (${totalDistance}km).`
+    : `Travelled to ${toName}.`;
+  ui.addNotification(msg, 'info');
+});
+
 // Save / Load
 bus.subscribe('ui:save', () => saveLoad.save());
 bus.subscribe('ui:load', () => {

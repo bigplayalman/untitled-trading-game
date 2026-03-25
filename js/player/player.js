@@ -7,6 +7,7 @@
  */
 
 import { TIER_NAMES } from '../engine/stateManager.js';
+import { buildAdjacency, shortestPath } from '../world/worldMap.js';
 
 export const TIER_THRESHOLDS = [
   { tier: 1, goldRequired: 500,    desc: 'Earn 500g total to become a Merchant.' },
@@ -29,8 +30,16 @@ export class Player {
 
   travelTo(cityId) {
     const prev = this._state.player.currentCityId;
+    if (prev === cityId) return;
+
+    const route = shortestPath(buildAdjacency(), prev, cityId);
     this._state.player.currentCityId = cityId;
-    this._bus.publish('player:travel', { from: prev, to: cityId });
+    this._bus.publish('player:travel', {
+      from: prev,
+      to: cityId,
+      path: route?.path ?? [prev, cityId],
+      totalDistance: route?.totalDistance ?? 0,
+    });
   }
 
   /** Check for tier-up on each day change */

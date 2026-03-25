@@ -67,6 +67,38 @@ html, body {
   z-index: 10;
 }
 
+#top-menu {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-tab {
+  min-width: 78px;
+}
+
+.menu-tab.active {
+  background: var(--wood-light);
+  border-color: var(--brass);
+  color: var(--brass-light);
+}
+
+#fleet-menu-panel {
+  position: fixed;
+  top: calc(var(--top-bar-h) + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 24px));
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 10px 12px;
+  background: var(--wood-med);
+  border: 2px solid var(--brass);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+  z-index: 60;
+}
+
 #player-info {
   display: flex;
   gap: 16px;
@@ -98,7 +130,7 @@ html, body {
 #main-content {
   grid-row: 2;
   display: grid;
-  grid-template-columns: var(--left-w) 1fr var(--right-w);
+  grid-template-columns: 170px 1fr var(--right-w);
   overflow: hidden;
 }
 

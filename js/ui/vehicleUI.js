@@ -114,6 +114,7 @@ export class VehicleUI {
         const v = this._mgr.getVehicle(li.dataset.vid);
         if (v && !v.isTravelling) {
           this._bus.publish('ui:citySelected', { cityId: v.currentCityId });
+          this._bus.publish('map:cityClick', { cityId: v.currentCityId });
         }
       });
     });

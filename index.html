@@ -25,6 +25,10 @@
       <div id="title-block">
         <span id="game-title">Oumzy</span>
       </div>
+      <nav id="top-menu">
+        <button id="btn-menu-map" class="menu-btn menu-tab active">Map</button>
+        <button id="btn-menu-fleet" class="menu-btn menu-tab">Fleet</button>
+      </nav>
       <div id="time-controls">
         <span class="stat-display">
           <span class="stat-label">Date</span>
@@ -42,6 +46,14 @@
         </div>
       </div>
     </header>
+    <div id="fleet-menu-panel" class="hidden">
+      <div class="panel-section">
+        <h3 class="panel-header">Fleet</h3>
+        <ul id="fleet-list">
+          <li class="empty-msg">No vehicles yet.</li>
+        </ul>
+      </div>
+    </div>
 
     <!-- Main Area -->
     <main id="main-content">
@@ -51,12 +63,6 @@
         <div class="panel-section">
           <h3 class="panel-header">Cities</h3>
           <ul id="city-list"></ul>
-        </div>
-        <div class="panel-section">
-          <h3 class="panel-header">Fleet</h3>
-          <ul id="fleet-list">
-            <li class="empty-msg">No vehicles yet.</li>
-          </ul>
         </div>
       </aside>
 
