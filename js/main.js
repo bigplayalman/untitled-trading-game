@@ -17,7 +17,9 @@ import { buildAdjacency }    from './world/worldMap.js';
 import { MapRenderer }       from './world/mapRenderer.js';
 
 import { Player }            from './player/player.js';
+import { VehicleManager }    from './player/vehicleManager.js';
 import { UIManager }         from './ui/uiManager.js';
+import { VehicleUI }         from './ui/vehicleUI.js';
 import { MILESTONES, TIER_UP_DIALOGUES } from './story/milestones.js';
 
 // ── 1. Create core systems ──────────────────────────────────────
@@ -35,16 +37,21 @@ for (const def of CITY_DEFS) {
 const adjacency = buildAdjacency();
 
 // ── 3. Create game systems ───────────────────────────────────────
-const market  = new Market(state, cities, bus);
-const player  = new Player(state, bus);
-const saveLoad = new SaveLoad(state, timeMgr, cities, bus);
+const market      = new Market(state, cities, bus);
+const player      = new Player(state, bus);
+const vehicleMgr  = new VehicleManager(state, cities, bus);
+const saveLoad    = new SaveLoad(state, timeMgr, cities, bus);
+saveLoad.setVehicleManager(vehicleMgr);
 
 // ── 4. UI ────────────────────────────────────────────────────────
-const ui = new UIManager(state, cities, market, timeMgr, player, bus);
+const ui        = new UIManager(state, cities, market, timeMgr, player, bus);
+const vehicleUI = new VehicleUI(state, vehicleMgr, cities, player, bus);
+ui.setVehicleUI(vehicleUI);
 
 // ── 5. Map renderer ──────────────────────────────────────────────
 const canvas = document.getElementById('game-map');
 const mapRenderer = new MapRenderer(canvas, cities, state, bus);
+mapRenderer.setVehicleManager(vehicleMgr);
 
 // ── 6. Game Loop systems ─────────────────────────────────────────
 
@@ -54,11 +61,11 @@ const mapRenderer = new MapRenderer(canvas, cities, state, bus);
  */
 const economySystem = {
   update(realDeltaMs) {
-    // Convert real delta to game hours elapsed
     const gameHours = (realDeltaMs / 1000) * timeMgr.speed;
     for (const city of cities.values()) {
       city.tick(gameHours);
     }
+    vehicleMgr.tick(gameHours);
     timeMgr.update(realDeltaMs);
   },
 };
@@ -119,6 +126,31 @@ bus.subscribe('market:sell', ({ goodId, qty, earned }) => {
   ui.addNotification(`Sold ${qty}x ${good?.name} for ${earned}g`, 'good');
 });
 
+// Vehicle events -> journal + toast
+bus.subscribe('vehicle:purchased', ({ vehicleName, typeId, starter }) => {
+  if (!starter) {
+    ui.addNotification(`Purchased a new ${typeId.replace(/_/g,' ')}!`, 'good');
+  }
+});
+
+bus.subscribe('vehicle:dispatched', ({ vehicleName, to, eta }) => {
+  const cityName = cities.get(to)?.name ?? to;
+  ui.addNotification(`${vehicleName} dispatched to ${cityName} (ETA: ${eta})`, 'info');
+});
+
+bus.subscribe('vehicle:arrived', ({ vehicleName, cityName, hasCargo }) => {
+  const msg = hasCargo
+    ? `${vehicleName} arrived at ${cityName} with cargo!`
+    : `${vehicleName} arrived at ${cityName}.`;
+  ui.addNotification(msg, 'good');
+  ui.toast(msg, 'good');
+});
+
+bus.subscribe('vehicle:transitCollected', ({ cityId, collected }) => {
+  const summary = collected.map(c => `${c.qty}x ${c.goodName}`).join(', ');
+  ui.addNotification(`Collected from transit: ${summary}`, 'good');
+});
+
 // Save / Load
 bus.subscribe('ui:save', () => saveLoad.save());
 bus.subscribe('ui:load', () => {
@@ -133,11 +165,15 @@ bus.subscribe('ui:load', () => {
   for (const [id, cityData] of Object.entries(data.cities ?? {})) {
     cities.get(id)?.loadSave(cityData);
   }
+  // Restore vehicles and transit
+  vehicleMgr.loadVehicles(data.state?.vehicles ?? []);
+  vehicleMgr.loadTransit(data.transit ?? {});
   // Sync speed button UI
   document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
   const activeSpeed = timeMgr.paused ? 0 : timeMgr.speed;
   document.querySelector(`.speed-btn[data-speed="${activeSpeed}"]`)?.classList.add('active');
   ui.markMarketDirty();
+  vehicleUI.markDirty();
   ui.toast('Game loaded.', 'good');
 });
 

@@ -51,7 +51,13 @@ export class UIManager {
       toastContainer:  document.getElementById('toast-container'),
     };
 
+    this._vehicleUI = null; // injected after construction
+
     this._bindEvents();
+  }
+
+  setVehicleUI(vehicleUI) {
+    this._vehicleUI = vehicleUI;
   }
 
   _bindEvents() {
@@ -79,6 +85,9 @@ export class UIManager {
         document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
         if (btn.dataset.tab === 'buildings' && this._currentCityId) {
           this._renderBuildings(this._currentCityId);
+        }
+        if (btn.dataset.tab === 'vehicles' && this._currentCityId && this._vehicleUI) {
+          this._vehicleUI.renderVehiclesTabForCity(this._currentCityId);
         }
       });
     });
@@ -123,12 +132,14 @@ export class UIManager {
     });
     this._bus.subscribe('save:success', () => this.toast('Game saved.', 'good'));
     this._bus.subscribe('save:failed',  () => this.toast('Save failed!', 'bad'));
+    this._bus.subscribe('ui:toast',     ({ message, type }) => this.toast(message, type ?? 'info'));
   }
 
   /** Called every render frame */
   render() {
     this._refreshTopBar();
     this._refreshInventory();
+    if (this._vehicleUI) this._vehicleUI.render();
     if (this._currentView === 'city' && this._currentCityId) {
       // Only rebuild the table when something actually changed
       if (this._marketDirty) {
@@ -266,6 +277,7 @@ export class UIManager {
     document.getElementById('tab-market').classList.remove('hidden');
 
     this._marketDirty = true;
+    if (this._vehicleUI) this._vehicleUI.markDirty();
     this._refreshCityList(cityId);
 
     // Player travels here

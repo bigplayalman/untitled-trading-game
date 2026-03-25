@@ -8,11 +8,16 @@ const SAVE_KEY = 'ironveil_save_v1';
 
 export class SaveLoad {
   constructor(state, timeManager, cities, eventBus) {
-    this._state   = state;
-    this._time    = timeManager;
-    this._cities  = cities;   // Map<id, City>
-    this._bus     = eventBus;
+    this._state      = state;
+    this._time       = timeManager;
+    this._cities     = cities;   // Map<id, City>
+    this._bus        = eventBus;
     this._lastSaveDay = 1;
+    this._vehicleMgr  = null;   // injected after construction
+  }
+
+  setVehicleManager(mgr) {
+    this._vehicleMgr = mgr;
   }
 
   /** Auto-save check - call on each day change */
@@ -27,9 +32,10 @@ export class SaveLoad {
     try {
       const payload = {
         version: 1,
-        time: this._time.save(),
-        state: this._serializeState(),
-        cities: this._serializeCities(),
+        time:    this._time.save(),
+        state:   this._serializeState(),
+        cities:  this._serializeCities(),
+        transit: this._vehicleMgr ? this._vehicleMgr.serializeTransit() : {},
         savedAt: Date.now(),
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));

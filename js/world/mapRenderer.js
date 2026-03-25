@@ -22,14 +22,15 @@ export class MapRenderer {
    * @param {EventBus}           bus
    */
   constructor(canvas, cities, state, bus) {
-    this._canvas    = canvas;
-    this._ctx       = canvas.getContext('2d');
-    this._cities    = cities;
-    this._state     = state;
-    this._bus       = bus;
-    this._selected  = null;
-    this._hovered   = null;
-    this._tooltip   = document.getElementById('map-tooltip');
+    this._canvas      = canvas;
+    this._ctx         = canvas.getContext('2d');
+    this._cities      = cities;
+    this._state       = state;
+    this._bus         = bus;
+    this._selected    = null;
+    this._hovered     = null;
+    this._tooltip     = document.getElementById('map-tooltip');
+    this._vehicleMgr  = null; // injected after construction
 
     this._resizeObserver = new ResizeObserver(() => this._resize());
     this._resizeObserver.observe(canvas.parentElement);
@@ -94,9 +95,10 @@ export class MapRenderer {
     ctx.setLineDash([]);
 
     // Draw vehicles in transit
-    for (const vehicle of this._state.vehicles) {
-      if (!vehicle.inTransit) continue;
-      this._drawVehicle(ctx, vehicle, W, H);
+    if (this._vehicleMgr) {
+      for (const vehicle of this._vehicleMgr.getTravelling()) {
+        this._drawVehicle(ctx, vehicle, W, H);
+      }
     }
 
     // Draw city nodes
@@ -157,17 +159,24 @@ export class MapRenderer {
   }
 
   _drawVehicle(ctx, vehicle, W, H) {
-    const from = this._cities.get(vehicle.fromCity);
-    const to   = this._cities.get(vehicle.toCity);
+    const from = this._cities.get(vehicle.fromCityId);
+    const to   = this._cities.get(vehicle.toCityId);
     if (!from || !to) return;
 
     const p1 = this._toScreen(from.x, from.y, W, H);
     const p2 = this._toScreen(to.x,   to.y,   W, H);
-    const t  = vehicle.progress ?? 0; // 0-1
+    const t  = vehicle.progress ?? 0;
 
     const x = p1.x + (p2.x - p1.x) * t;
     const y = p1.y + (p2.y - p1.y) * t;
 
+    // Glow behind vehicle
+    ctx.beginPath();
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,230,100,0.2)';
+    ctx.fill();
+
+    // Vehicle dot
     ctx.beginPath();
     ctx.arc(x, y, 5, 0, Math.PI * 2);
     ctx.fillStyle   = '#ffe680';
@@ -176,10 +185,22 @@ export class MapRenderer {
     ctx.fill();
     ctx.stroke();
 
-    ctx.font      = '10px serif';
+    // Icon above dot
+    ctx.font      = '12px serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffe680';
-    ctx.fillText(vehicle.icon ?? '🚂', x, y - 8);
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur  = 3;
+    ctx.fillText(vehicle.icon ?? '🚂', x, y - 10);
+    ctx.shadowBlur  = 0;
+
+    // Name label
+    ctx.fillStyle = 'rgba(255,230,100,0.8)';
+    ctx.font      = '9px "Courier New"';
+    ctx.fillText(vehicle.name, x, y + 18);
+  }
+
+  setVehicleManager(mgr) {
+    this._vehicleMgr = mgr;
   }
 
   _toScreen(nx, ny, W, H) {
