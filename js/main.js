@@ -20,6 +20,7 @@ import { Player }                         from './player/player.js';
 import { VehicleManager }                 from './player/vehicleManager.js';
 import { UIManager }                      from './ui/uiManager.js';
 import { VehicleUI }                      from './ui/vehicleUI.js';
+import { MapPanel }                       from './ui/mapPanel.js';
 import { MILESTONES, TIER_UP_DIALOGUES }  from './story/milestones.js';
 
 // ── 1. Core systems ─────────────────────────────────────────────
@@ -45,10 +46,11 @@ const vehicleUI = new VehicleUI(state, vehicleMgr, market, cities, player, bus);
 ui.setVehicleUI(vehicleUI);
 ui.setVehicleManager(vehicleMgr);
 
-// ── 5. Map renderer ──────────────────────────────────────────────
+// ── 5. Map renderer + map panel ─────────────────────────────────
 const canvas = document.getElementById('game-map');
 const mapRenderer = new MapRenderer(canvas, cities, state, bus);
 mapRenderer.setVehicleManager(vehicleMgr);
+const mapPanel = new MapPanel(vehicleMgr, mapRenderer, cities, bus);
 
 // ── 6. Game loop ─────────────────────────────────────────────────
 const economySystem = {
@@ -64,6 +66,7 @@ const renderSystem = {
   render() {
     mapRenderer.render();
     ui.render();
+    mapPanel.tick();
   },
 };
 

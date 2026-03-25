@@ -90,13 +90,9 @@ export class VehicleManager {
   // ── Dispatch ──────────────────────────────────────────────────
 
   dispatch(vehicleId, toCityId) {
-    const v      = this.getVehicle(vehicleId);
-    const player = this._state.player;
+    const v = this.getVehicle(vehicleId);
 
     if (!v) return { ok: false, message: 'Vehicle not found.' };
-    if (v.currentCityId !== player.currentCityId) {
-      return { ok: false, message: `${v.name} is not at your current city.` };
-    }
 
     const distance = getDirectDistance(v.currentCityId, toCityId);
     if (distance === null) {

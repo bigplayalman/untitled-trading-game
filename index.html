@@ -67,6 +67,23 @@
         <div id="map-view">
           <canvas id="game-map"></canvas>
           <div id="map-tooltip" class="hidden"></div>
+
+          <!-- Map Vehicle Panel (appears when a vehicle/city is selected on map) -->
+          <div id="map-vehicle-panel" class="hidden">
+            <div id="mvp-header">
+              <span id="mvp-icon"></span>
+              <div id="mvp-title-block">
+                <span id="mvp-name"></span>
+                <span id="mvp-status"></span>
+              </div>
+              <button id="mvp-close">✕</button>
+            </div>
+            <div id="mvp-transport-bar-row">
+              <span id="mvp-transport-label"></span>
+              <div id="mvp-transport-wrap"><div id="mvp-transport-bar"></div></div>
+            </div>
+            <div id="mvp-body"></div>
+          </div>
         </div>
 
         <!-- City View (hidden until city selected) -->

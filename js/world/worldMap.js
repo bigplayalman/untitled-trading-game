@@ -23,7 +23,6 @@ export const CONNECTIONS = [
   { from: 'verdania',   to: 'windhollow',  distance: 130 },
   { from: 'windhollow', to: 'crystaldeep', distance: 110 },
   { from: 'millhurst',  to: 'crystaldeep', distance: 250 },
-  { from: 'millhurst',  to: 'cogsworth',   distance: 200 },
 ];
 
 /** Build adjacency list from connections */
