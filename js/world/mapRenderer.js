@@ -48,6 +48,12 @@ export class MapRenderer {
     canvas.addEventListener('click',     this._onClick.bind(this));
   }
 
+  _resize() {
+    const parent = this._canvas.parentElement;
+    this._canvas.width  = parent.clientWidth;
+    this._canvas.height = parent.clientHeight;
+  }
+
   setVehicleManager(mgr) { this._vehicleMgr = mgr; }
   setSelected(cityId)    { this._selected = cityId; }
 
