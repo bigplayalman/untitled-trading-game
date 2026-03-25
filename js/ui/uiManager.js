@@ -39,7 +39,7 @@ export class UIManager {
       gold:            document.getElementById('ui-gold'),
       tier:            document.getElementById('ui-tier'),
       date:            document.getElementById('ui-date'),
-      cityList:        document.getElementById('city-list'),
+      cargoSidebar:    document.getElementById('cargo-sidebar'),
       mapView:         document.getElementById('map-view'),
       cityModal:       document.getElementById('city-modal'),
       cityView:        document.getElementById('city-view'),
@@ -65,6 +65,9 @@ export class UIManager {
       dialogueText:    document.getElementById('dialogue-text'),
       dialogueChoices: document.getElementById('dialogue-choices'),
       dialoguePortrait:document.getElementById('dialogue-portrait'),
+      nameOverlay:     document.getElementById('name-overlay'),
+      nameForm:        document.getElementById('name-form'),
+      nameInput:       document.getElementById('name-input'),
       toastContainer:  document.getElementById('toast-container'),
     };
 
@@ -131,6 +134,7 @@ export class UIManager {
     // Save / Load
     document.getElementById('btn-save').addEventListener('click', () => this._bus.publish('ui:save', {}));
     document.getElementById('btn-load').addEventListener('click', () => this._bus.publish('ui:load', {}));
+    this._els.nameForm?.addEventListener('submit', e => this._handleNameSubmit(e));
 
     // City click from map
     this._bus.subscribe('map:cityClick', ({ cityId }) => this.showCity(cityId));
@@ -145,6 +149,7 @@ export class UIManager {
     this._bus.subscribe('vehicle:arrived',    () => { this._lastDockedHash = ''; });
     this._bus.subscribe('vehicle:dispatched', () => { this._lastDockedHash = ''; });
     this._bus.subscribe('vehicle:purchased',  () => { this._lastDockedHash = ''; });
+    this._bus.subscribe('vehicle:transportChanged', () => { this._lastDockedHash = ''; });
 
     // Reputation events — refresh market and rep display
     this._bus.subscribe('reputation:gained', ({ cityId }) => {
@@ -159,6 +164,7 @@ export class UIManager {
   /** Called every render frame */
   render() {
     this._refreshTopBar();
+    this._refreshCargoSidebar();
     this._refreshDockedVehicles();
     if (this._vehicleUI) this._vehicleUI.render();
     if (this._cityModalOpen && this._currentCityId) {
@@ -537,7 +543,6 @@ export class UIManager {
     this._showingCityOverview = false;
     this._els.cityModal?.classList.add('hidden');
     this.hideFleetMenu(false);
-    this._refreshCityList(this._player.currentCityId);
     this._setActiveTopMenu('map');
   }
 
@@ -578,7 +583,6 @@ export class UIManager {
     this._lastDockedHash = '';
     this._lastRepHash    = '';
     if (this._vehicleUI) this._vehicleUI.markDirty();
-    this._refreshCityList(cityId);
     this._player.travelTo(cityId);
   }
 
@@ -601,22 +605,68 @@ export class UIManager {
     document.getElementById('btn-menu-fleet')?.classList.toggle('active', active === 'fleet');
   }
 
-  _refreshCityList(activeCityId) {
-    const items = [];
-    for (const [id, city] of this._cities) {
-      const isActive = id === activeCityId;
-      items.push(`<li class="city-list-item ${isActive ? 'active' : ''}" data-city="${id}">
-        <div class="city-li-name">${city.name}</div>
-        <div class="city-li-sub">Pop: ${city.population.toLocaleString()}</div>
-      </li>`);
+  _refreshCargoSidebar() {
+    if (!this._els.cargoSidebar || !this._vehicleMgr) return;
+
+    const vehicle = this._resolveSidebarVehicle();
+    if (!vehicle) {
+      this._els.cargoSidebar.innerHTML = '<p class="empty-msg">Select a vehicle from the map or fleet menu to inspect its cargo.</p>';
+      return;
     }
-    this._els.cityList.innerHTML = items.join('');
-    this._els.cityList.querySelectorAll('li').forEach(li => {
-      li.addEventListener('click', () => {
-        this.showCity(li.dataset.city);
-        this._bus.publish('ui:citySelected', { cityId: li.dataset.city });
-      });
-    });
+
+    const currentCity = this._cities.get(vehicle.currentCityId);
+    const entries = Object.entries(vehicle.transport)
+      .filter(([, qty]) => qty > 0)
+      .sort((a, b) => b[1] - a[1]);
+
+    const cargoRows = entries.length === 0
+      ? '<p class="empty-msg">This vessel is empty.</p>'
+      : entries.map(([goodId, qty]) => {
+          const good = GOODS[goodId];
+          const avgCost = qty > 0 ? ((vehicle.transportCostBasis?.[goodId] ?? 0) / qty) : 0;
+          const currentSell = currentCity ? currentCity.getSellPrice(goodId) : 0;
+          const delta = currentCity ? currentSell - avgCost : 0;
+          const deltaClass = delta > 0 ? 'num-pos' : delta < 0 ? 'num-neg' : '';
+          const deltaText = currentCity
+            ? `<span class="${deltaClass}">${delta >= 0 ? '+' : ''}${Math.round(delta)}g now</span>`
+            : '';
+
+          return `<div class="cargo-item">
+            <div class="cargo-top">
+              <span class="cargo-name">${good?.icon ?? ''} ${good?.name ?? goodId}</span>
+              <span class="cargo-qty">${qty} units</span>
+            </div>
+            <div class="cargo-meta">
+              <span>${(good?.weight ?? 1) * qty} wt</span>
+              <span>Avg buy ${avgCost > 0 ? avgCost.toFixed(1) : '0.0'}g</span>
+              ${deltaText}
+            </div>
+          </div>`;
+        }).join('');
+
+    const status = vehicle.isTravelling
+      ? `En route to ${this._cities.get(vehicle.finalCityId ?? vehicle.toCityId)?.name ?? vehicle.toCityId}`
+      : `Idle at ${this._cities.get(vehicle.currentCityId)?.name ?? vehicle.currentCityId}`;
+
+    this._els.cargoSidebar.innerHTML = `
+      <div class="cargo-header-card">
+        <div class="cargo-vessel-name">${vehicle.icon} ${vehicle.name}</div>
+        <div class="cargo-vessel-status">${status}</div>
+        <div class="cargo-vessel-cap">${vehicle.transportUsed}/${vehicle.capacity} wt used</div>
+      </div>
+      <div class="cargo-list">${cargoRows}</div>
+    `;
+  }
+
+  _resolveSidebarVehicle() {
+    const selectedId = this._vehicleUI?.getSelectedVehicleId?.();
+    const selected = selectedId ? this._vehicleMgr.getVehicle(selectedId) : null;
+    if (selected) return selected;
+
+    const currentCityVehicles = this._vehicleMgr.getVehiclesAt(this._player.currentCityId);
+    if (currentCityVehicles.length) return currentCityVehicles[0];
+
+    return this._vehicleMgr.vehicles[0] ?? null;
   }
 
   // ── Notifications / Journal ──────────────────────────────────
@@ -653,7 +703,9 @@ export class UIManager {
       btn.className   = 'dialogue-choice';
       btn.textContent = choice.text;
       btn.addEventListener('click', () => {
-        if (choice.action === 'close' || !choice.next) {
+        if (choice.action === 'name') {
+          this._showNamePrompt(milestone.id);
+        } else if (choice.action === 'close' || !choice.next) {
           this._els.dialogue.classList.add('hidden');
           this._bus.publish('dialogue:closed', { milestoneId: milestone.id });
         } else {
@@ -665,6 +717,36 @@ export class UIManager {
     this._time.setSpeed(0);
   }
 
+  _showNamePrompt(milestoneId) {
+    this._els.dialogue.classList.add('hidden');
+    this._els.nameOverlay?.classList.remove('hidden');
+    this._els.nameOverlay.dataset.milestoneId = milestoneId;
+    if (this._els.nameInput) {
+      this._els.nameInput.value = this._state.player.name ?? '';
+      setTimeout(() => this._els.nameInput?.focus(), 0);
+    }
+  }
+
+  _handleNameSubmit(e) {
+    e.preventDefault();
+    const rawName = this._els.nameInput?.value ?? '';
+    const name = rawName.trim().replace(/\s+/g, ' ');
+    if (!name) {
+      this.toast('Enter a name first.', 'bad');
+      this._els.nameInput?.focus();
+      return;
+    }
+
+    this._state.player.name = name;
+    this._els.nameOverlay?.classList.add('hidden');
+    this.toast(`You are now known as ${name}.`, 'good');
+    this.addNotification(`The old peddler learns your name: ${name}.`, 'info');
+    this._bus.publish('dialogue:closed', {
+      milestoneId: this._els.nameOverlay?.dataset.milestoneId ?? 'intro_03',
+      playerName: name,
+    });
+  }
+
   setQuestDisplay(title, text, goals) {
     this._els.questTitle.textContent  = title;
     this._els.questText.textContent   = text;
@@ -674,7 +756,7 @@ export class UIManager {
   }
 
   init() {
-    this._refreshCityList();
+    this._refreshCargoSidebar();
     this._refreshTopBar();
     this.setQuestDisplay(
       'A Strange New World',

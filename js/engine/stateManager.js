@@ -29,6 +29,7 @@ export class EventBus {
 export function createInitialState() {
   return {
     player: {
+      name: '',
       gold: 50,
       reputation: {
         cogsworth:   10,   // home base — small head start

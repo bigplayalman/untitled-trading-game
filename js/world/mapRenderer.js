@@ -8,7 +8,7 @@
  *                 click a target city to dispatch the vehicle
  */
 
-import { CONNECTIONS } from './worldMap.js';
+import { buildAdjacency, CONNECTIONS, shortestPath } from './worldMap.js';
 
 const CITY_RADIUS          = 12;
 const CITY_SELECTED_RADIUS = 16;
@@ -29,6 +29,7 @@ export class MapRenderer {
     this._vehicleMgr = null;
 
     this._selected   = null;   // selected city id (normal mode)
+    this._selectedVehicleId = null;
     this._hovered    = null;   // hovered city id
     this._hoveredVehicle = null; // hovered vehicle id
 
@@ -46,6 +47,7 @@ export class MapRenderer {
     canvas.addEventListener('mousemove', this._onMouseMove.bind(this));
     canvas.addEventListener('mouseleave', this._onMouseLeave.bind(this));
     canvas.addEventListener('click',     this._onClick.bind(this));
+    canvas.addEventListener('contextmenu', this._onContextMenu.bind(this));
   }
 
   _resize() {
@@ -56,6 +58,7 @@ export class MapRenderer {
 
   setVehicleManager(mgr) { this._vehicleMgr = mgr; }
   setSelected(cityId)    { this._selected = cityId; }
+  setSelectedVehicle(vehicleId) { this._selectedVehicleId = vehicleId; }
 
   // ── Dispatch mode ─────────────────────────────────────────────
 
@@ -261,7 +264,7 @@ export class MapRenderer {
     if (!city) return;
 
     const pos     = this._toScreen(city.x, city.y, W, H);
-    const isSelected = vehicle.id === this._dispatchVehicle?.id;
+    const isSelected = vehicle.id === this._dispatchVehicle?.id || vehicle.id === this._selectedVehicleId;
     const isHovered  = vehicle.id === this._hoveredVehicle;
 
     // Small offset so multiple vehicles at the same city don't all stack
@@ -300,11 +303,14 @@ export class MapRenderer {
     const y  = p1.y + (p2.y - p1.y) * t;
 
     const isHovered = vehicle.id === this._hoveredVehicle;
+    const isSelected = vehicle.id === this._selectedVehicleId;
 
     // Glow
     ctx.beginPath();
-    ctx.arc(x, y, isHovered ? 12 : 9, 0, Math.PI * 2);
-    ctx.fillStyle = isHovered ? 'rgba(255,230,100,0.35)' : 'rgba(255,230,100,0.2)';
+    ctx.arc(x, y, (isHovered || isSelected) ? 12 : 9, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected
+      ? 'rgba(95,202,95,0.35)'
+      : isHovered ? 'rgba(255,230,100,0.35)' : 'rgba(255,230,100,0.2)';
     ctx.fill();
 
     // Dot
@@ -404,6 +410,15 @@ export class MapRenderer {
       if (docked.length > 0) {
         tip += `<br><span style="color:#ffe680">🚂 ${docked.map(v => v.name).join(', ')}</span>`;
       }
+      if (!this._dispatchMode && this._selectedVehicleId) {
+        const selectedVehicle = this._vehicleMgr?.getVehicle(this._selectedVehicleId);
+        if (selectedVehicle?.isIdle && selectedVehicle.currentCityId !== cityId) {
+          const route = shortestPath(buildAdjacency(), selectedVehicle.currentCityId, cityId);
+          if (route) {
+            tip += `<br><span style="color:#5fca5f">Right-click to send ${selectedVehicle.name} here (${route.totalDistance}km)</span>`;
+          }
+        }
+      }
       if (this._dispatchMode && this._dispatchTargets.has(cityId)) {
         const dist = CONNECTIONS.find(
           c => (c.from === this._dispatchVehicle.currentCityId && c.to === cityId) ||
@@ -425,7 +440,7 @@ export class MapRenderer {
       } else {
         const loc = this._cities.get(vehicle.currentCityId)?.name ?? vehicle.currentCityId;
         tip += `Idle at ${loc}<br>${vehicle.transportUsed}/${vehicle.capacity} wt loaded`;
-        tip += `<br><span style="color:#ffe680">Click to manage</span>`;
+        tip += `<br><span style="color:#ffe680">Click to select/manage • Right-click city to move</span>`;
       }
       this._tooltip.innerHTML = tip;
       this._tooltip.classList.remove('hidden');
@@ -468,6 +483,7 @@ export class MapRenderer {
 
     if (vehicle) {
       // Vehicle clicked — open map panel
+      this._selectedVehicleId = vehicle.id;
       this._bus.publish('map:vehicleClick', { vehicleId: vehicle.id });
       return;
     }
@@ -476,6 +492,26 @@ export class MapRenderer {
       this._selected = cityId;
       this._bus.publish('map:cityClick', { cityId });
     }
+  }
+
+  _onContextMenu(e) {
+    e.preventDefault();
+
+    if (this._dispatchMode) return;
+
+    const selectedVehicle = this._vehicleMgr?.getVehicle(this._selectedVehicleId);
+    if (!selectedVehicle || !selectedVehicle.isIdle) return;
+
+    const rect   = this._canvas.getBoundingClientRect();
+    const mx     = e.clientX - rect.left;
+    const my     = e.clientY - rect.top;
+    const cityId = this._getCityAt(mx, my);
+    if (!cityId || cityId === selectedVehicle.currentCityId) return;
+
+    this._bus.publish('map:dispatchVehicle', {
+      vehicleId: selectedVehicle.id,
+      toCityId: cityId,
+    });
   }
 
   _toScreen(nx, ny, W, H) {

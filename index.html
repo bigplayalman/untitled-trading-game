@@ -61,8 +61,8 @@
       <!-- Left Panel -->
       <aside id="left-panel">
         <div class="panel-section">
-          <h3 class="panel-header">Cities</h3>
-          <ul id="city-list"></ul>
+          <h3 class="panel-header">Cargo</h3>
+          <div id="cargo-sidebar"></div>
         </div>
       </aside>
 
@@ -194,6 +194,17 @@
           <div id="dialogue-text"></div>
         </div>
         <div id="dialogue-choices"></div>
+      </div>
+    </div>
+
+    <div id="name-overlay" class="hidden">
+      <div id="name-box">
+        <div id="name-title">What Is Your Name?</div>
+        <p id="name-text">The old peddler waits patiently while you search the fog of your memory for something to call yourself.</p>
+        <form id="name-form">
+          <input id="name-input" type="text" maxlength="24" autocomplete="off" placeholder="Enter a name">
+          <button id="name-submit" type="submit" class="menu-btn">Confirm</button>
+        </form>
       </div>
     </div>
 

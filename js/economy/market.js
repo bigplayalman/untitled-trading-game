@@ -77,7 +77,10 @@ export class Market {
     // Commit
     city.playerBuys(goodId, qty);
     player.gold -= cost;
-    vehicle.transport[goodId] = (vehicle.transport[goodId] ?? 0) + qty;
+    const previousQty = vehicle.transport[goodId] ?? 0;
+    const previousCostBasis = vehicle.transportCostBasis?.[goodId] ?? 0;
+    vehicle.transport[goodId] = previousQty + qty;
+    vehicle.transportCostBasis[goodId] = previousCostBasis + cost;
 
     // Reputation gain (base only for buying — no demand multiplier)
     const repGain = gainFromTrade(good.category, 1, false);
@@ -144,7 +147,14 @@ export class Market {
 
     // Commit
     vehicle.transport[goodId] = onboard - qty;
-    if (vehicle.transport[goodId] === 0) delete vehicle.transport[goodId];
+    const avgBuyPrice = onboard > 0 ? ((vehicle.transportCostBasis?.[goodId] ?? 0) / onboard) : 0;
+    const remainingQty = vehicle.transport[goodId];
+    if (remainingQty > 0) {
+      vehicle.transportCostBasis[goodId] = Math.max(0, Math.round((avgBuyPrice * remainingQty) * 100) / 100);
+    } else {
+      delete vehicle.transport[goodId];
+      delete vehicle.transportCostBasis[goodId];
+    }
     player.gold += earned;
 
     addRep(this._state, cityId, this._bus, repGain);

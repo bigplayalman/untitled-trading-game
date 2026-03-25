@@ -104,7 +104,7 @@ export class MapPanel {
     this._name.textContent = v.name;
 
     if (v.isTravelling) {
-      const dest = this._cities.get(v.toCityId)?.name ?? v.toCityId;
+      const dest = this._cities.get(v.finalCityId ?? v.toCityId)?.name ?? v.finalCityId ?? v.toCityId;
       this._status.textContent = `En route to ${dest}`;
     } else {
       this._status.textContent = `Idle at ${cityName}`;
@@ -164,7 +164,8 @@ export class MapPanel {
   }
 
   _renderTravelling(v) {
-    const dest      = this._cities.get(v.toCityId)?.name ?? v.toCityId;
+    const dest      = this._cities.get(v.finalCityId ?? v.toCityId)?.name ?? v.finalCityId ?? v.toCityId;
+    const nextStop  = this._cities.get(v.toCityId)?.name ?? v.toCityId;
     const etaStr    = v.getEtaString();
     const progress  = Math.round(v.progress * 100);
 
@@ -184,6 +185,7 @@ export class MapPanel {
       </div>
       <div class="mvp-travelling-info">
         Heading to <strong>${dest}</strong><br>
+        ${nextStop !== dest ? `Next stop: <strong>${nextStop}</strong><br>` : ''}
         ETA: <strong>${etaStr || 'Arriving...'}</strong>
         <div class="mvp-eta-bar-wrap">
           <div class="mvp-eta-bar" style="width:${progress}%"></div>

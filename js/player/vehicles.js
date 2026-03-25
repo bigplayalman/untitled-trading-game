@@ -78,14 +78,17 @@ export class Vehicle {
 
     // Transport bay: { goodId: qty }
     this.transport = {};
+    this.transportCostBasis = {};
 
     // Location / travel state
     this.status            = 'idle'; // 'idle' | 'travelling'
     this.currentCityId     = cityId;
     this.fromCityId        = cityId;
     this.toCityId          = null;
+    this.finalCityId       = cityId;
     this.distanceTotal     = 0;
     this.distanceTravelled = 0;
+    this.routeQueue        = [];
 
     // 0-1 progress for map rendering
     this.progress  = 0;
@@ -185,17 +188,19 @@ export class Vehicle {
    * @param {number} distance  km
    * Returns { ok, message }
    */
-  dispatch(toCityId, distance) {
+  dispatch(toCityId, distance, routeQueue = [], finalCityId = toCityId) {
     if (!this.isIdle)              return { ok: false, message: `${this.name} is already travelling.` };
     if (toCityId === this.currentCityId) return { ok: false, message: 'Already at that city.' };
 
     this.status            = 'travelling';
     this.fromCityId        = this.currentCityId;
     this.toCityId          = toCityId;
+    this.finalCityId       = finalCityId;
     this.distanceTotal     = distance;
     this.distanceTravelled = 0;
     this.progress          = 0;
     this.etaHours          = distance / this.speed;
+    this.routeQueue        = [...routeQueue];
     return { ok: true, message: `${this.name} dispatched.` };
   }
 
@@ -217,6 +222,7 @@ export class Vehicle {
       this.status        = 'idle';
       this.progress      = 0;
       this.currentCityId = this.toCityId;
+      this.fromCityId    = this.currentCityId;
       this.etaHours      = 0;
       return true;
     }
@@ -241,14 +247,17 @@ export class Vehicle {
       speed:             this.speed,
       capacity:          this.capacity,
       transport:         { ...this.transport },
+      transportCostBasis:{ ...this.transportCostBasis },
       status:            this.status,
       currentCityId:     this.currentCityId,
       fromCityId:        this.fromCityId,
       toCityId:          this.toCityId,
+      finalCityId:       this.finalCityId,
       distanceTotal:     this.distanceTotal,
       distanceTravelled: this.distanceTravelled,
       progress:          this.progress,
       etaHours:          this.etaHours,
+      routeQueue:        [...this.routeQueue],
     };
   }
 
@@ -258,6 +267,7 @@ export class Vehicle {
     // Support legacy saves that used 'cargo' key
     if (!v.transport && data.cargo) v.transport = data.cargo;
     if (!v.transport) v.transport = {};
+    if (!v.transportCostBasis) v.transportCostBasis = {};
     return v;
   }
 }

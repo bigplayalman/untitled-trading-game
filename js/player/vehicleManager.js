@@ -9,7 +9,7 @@
  */
 
 import { Vehicle, VEHICLE_TYPES } from './vehicles.js';
-import { getDirectDistance }      from '../world/worldMap.js';
+import { buildAdjacency, getDirectDistance, shortestPath } from '../world/worldMap.js';
 
 export class VehicleManager {
   constructor(state, cities, bus) {
@@ -94,12 +94,17 @@ export class VehicleManager {
 
     if (!v) return { ok: false, message: 'Vehicle not found.' };
 
-    const distance = getDirectDistance(v.currentCityId, toCityId);
-    if (distance === null) {
-      return { ok: false, message: `No direct route to that city.` };
+    const route = shortestPath(buildAdjacency(), v.currentCityId, toCityId);
+    if (!route || route.path.length < 2) {
+      return { ok: false, message: 'No route to that city.' };
     }
 
-    const result = v.dispatch(toCityId, distance);
+    const firstHop = route.path[1];
+    const distance = getDirectDistance(v.currentCityId, firstHop);
+    if (distance === null) return { ok: false, message: 'No route to that city.' };
+
+    const remainingRoute = route.path.slice(2);
+    const result = v.dispatch(firstHop, distance, remainingRoute, toCityId);
     if (result.ok) {
       this._syncState();
       this._bus.publish('vehicle:dispatched', {
@@ -107,6 +112,9 @@ export class VehicleManager {
         vehicleName: v.name,
         from: v.fromCityId,
         to:   toCityId,
+        nextStop: firstHop,
+        route: route.path,
+        totalDistance: route.totalDistance,
         eta:  v.getEtaString(),
       });
     }
@@ -132,6 +140,23 @@ export class VehicleManager {
   // ── Internal ──────────────────────────────────────────────────
 
   _handleArrival(vehicle) {
+    if (vehicle.routeQueue?.length) {
+      const nextCityId = vehicle.routeQueue.shift();
+      const distance = getDirectDistance(vehicle.currentCityId, nextCityId);
+      if (distance !== null) {
+        vehicle.dispatch(nextCityId, distance, vehicle.routeQueue, vehicle.finalCityId ?? nextCityId);
+        this._bus.publish('vehicle:transitLeg', {
+          vehicleId: vehicle.id,
+          vehicleName: vehicle.name,
+          from: vehicle.fromCityId,
+          to: nextCityId,
+          finalCityId: vehicle.finalCityId ?? nextCityId,
+          eta: vehicle.getEtaString(),
+        });
+        return;
+      }
+    }
+
     const cityName    = this._cities.get(vehicle.currentCityId)?.name ?? vehicle.currentCityId;
     const hasGoods    = Object.keys(vehicle.transport).length > 0;
 

@@ -126,9 +126,19 @@ bus.subscribe('vehicle:purchased', ({ typeId, starter }) => {
   if (!starter) ui.addNotification(`Purchased a new ${typeId.replace(/_/g, ' ')}!`, 'good');
 });
 
-bus.subscribe('vehicle:dispatched', ({ vehicleName, to, eta }) => {
+bus.subscribe('vehicle:dispatched', ({ vehicleName, to, nextStop, route, eta }) => {
   const cityName = cities.get(to)?.name ?? to;
-  ui.addNotification(`${vehicleName} dispatched to ${cityName} (ETA: ${eta})`, 'info');
+  const nextStopName = cities.get(nextStop)?.name ?? nextStop ?? to;
+  const routeStr = Array.isArray(route) && route.length > 2
+    ? ` via ${route.slice(1, -1).map(id => cities.get(id)?.name ?? id).join(' -> ')}`
+    : '';
+  ui.addNotification(`${vehicleName} dispatched to ${cityName}${routeStr}. Next stop: ${nextStopName} (${eta})`, 'info');
+});
+
+bus.subscribe('vehicle:transitLeg', ({ vehicleName, to, finalCityId, eta }) => {
+  const nextStopName = cities.get(to)?.name ?? to;
+  const finalName = cities.get(finalCityId)?.name ?? finalCityId;
+  ui.addNotification(`${vehicleName} continues toward ${finalName}. Next stop: ${nextStopName} (${eta})`, 'info');
 });
 
 bus.subscribe('vehicle:arrived', ({ vehicleName, cityName, hasGoods }) => {
