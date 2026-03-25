@@ -10,7 +10,8 @@
 import { GOODS }                              from '../economy/goods.js';
 import { TIER_NAMES }                         from '../engine/stateManager.js';
 import { getRepForCity, getRepTier,
-         getRepProgress, canBuy }             from '../player/reputation.js';
+         getRepProgress, canBuy, canSell,
+         gainFromTrade }                      from '../player/reputation.js';
 
 export class UIManager {
   constructor(state, cities, market, timeManager, player, bus) {
@@ -52,6 +53,7 @@ export class UIManager {
       cityRepBar:      document.getElementById('city-rep-bar'),
       cityRepVal:      document.getElementById('city-rep-val'),
       cityOverview:    document.getElementById('city-overview'),
+      marketTradeBar:  document.getElementById('market-trade-bar'),
       notifications:   document.getElementById('notifications'),
       questTitle:      document.getElementById('quest-title'),
       questText:       document.getElementById('quest-text'),
@@ -258,6 +260,10 @@ export class UIManager {
     }
 
     const rep = getRepForCity(this._state, cityId);
+    const vehiclesHere = this._vehicleMgr?.getVehiclesAt(cityId) ?? [];
+    const selectedVehicle = this._resolveMarketVehicle(cityId, vehiclesHere);
+
+    this._renderMarketTradeBar(cityId, vehiclesHere, selectedVehicle);
 
     const rows = Object.values(GOODS).map(good => {
       const price      = city.getBuyPrice(good.id);
@@ -270,12 +276,34 @@ export class UIManager {
       const buyCheck  = canBuy(rep, good);
       const locked    = !buyCheck.ok;
       const rowClass  = locked ? 'market-row-locked' : '';
+      const vehicleQty = selectedVehicle?.transport?.[good.id] ?? 0;
+      const sellCheck = canSell(rep, good);
+      const canLoad   = selectedVehicle ? selectedVehicle.maxLoadable(good.id) : 0;
+      const buyMax    = selectedVehicle ? Math.min(stock, canLoad) : 0;
+      const sellMax   = selectedVehicle ? vehicleQty : 0;
 
       let accessCell;
       if (locked) {
         accessCell = `<td class="access-locked">🔒 ${buyCheck.minRep} rep<br><small>${buyCheck.tierName}</small></td>`;
       } else {
         accessCell = `<td class="access-ok">✓</td>`;
+      }
+
+      let tradeCell = '<td class="market-holdings">No docked vehicle selected.</td>';
+      if (selectedVehicle) {
+        const repGain  = gainFromTrade(good.category, sellPrice / (good.basePrice || 1), true);
+        const sellMeta = sellCheck.ok
+          ? `${vehicleQty} on board`
+          : `Need ${sellCheck.minRepSell} rep`;
+        tradeCell = `<td>
+          <div class="market-actions">
+            <input type="number" id="market-qty-${good.id}" class="market-qty-input"
+              value="1" min="1" max="${Math.max(buyMax, sellMax, 1)}">
+            <button class="buy-btn btn-market-buy" data-good="${good.id}" ${buyMax <= 0 || locked ? 'disabled' : ''}>Buy</button>
+            <button class="sell-btn btn-market-sell" data-good="${good.id}" ${sellMax <= 0 || !sellCheck.ok ? 'disabled' : ''}>Sell</button>
+          </div>
+          <div class="market-holdings">${sellMeta}${sellCheck.ok && vehicleQty > 0 ? ` • +${repGain.toFixed(1)} rep` : ''}</div>
+        </td>`;
       }
 
       return `<tr class="${rowClass}">
@@ -288,10 +316,96 @@ export class UIManager {
         <td><span class="wt-badge">${good.weight} wt</span></td>
         <td class="trend-${trend}">${trendIcon}</td>
         ${accessCell}
+        ${tradeCell}
       </tr>`;
     }).join('');
 
     this._els.marketBody.innerHTML = rows;
+    this._bindMarketTradeEvents(cityId, selectedVehicle?.id ?? null);
+  }
+
+  _renderMarketTradeBar(cityId, vehiclesHere, selectedVehicle) {
+    if (!this._els.marketTradeBar) return;
+
+    if (vehiclesHere.length === 0) {
+      this._els.marketTradeBar.innerHTML = `
+        <div class="market-trade-panel market-trade-empty">
+          <div>
+            <strong>No docked vehicles here</strong>
+            <p>Dispatch a vehicle to ${this._cities.get(cityId)?.name ?? 'this city'} before you can trade.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const options = vehiclesHere.map(v => {
+      const selected = v.id === selectedVehicle?.id ? 'selected' : '';
+      return `<option value="${v.id}" ${selected}>${v.name} • ${v.transportUsed}/${v.capacity} wt • ${v.capacity - v.transportUsed} wt free</option>`;
+    }).join('');
+
+    this._els.marketTradeBar.innerHTML = `
+      <div class="market-trade-panel">
+        <div>
+          <strong>Trading Vehicle</strong>
+          <p>All purchases load into the selected vehicle. All sales unload from it.</p>
+        </div>
+        <select id="market-vehicle-picker" class="market-vehicle-picker">${options}</select>
+      </div>
+    `;
+
+    document.getElementById('market-vehicle-picker')?.addEventListener('change', e => {
+      this._vehicleUI?.setSelectedVehicleId(e.target.value);
+      this._marketDirty = true;
+    });
+  }
+
+  _resolveMarketVehicle(cityId, vehiclesHere) {
+    if (!vehiclesHere.length) return null;
+
+    const selectedId = this._vehicleUI?.getSelectedVehicleId?.() ?? null;
+    let selected = vehiclesHere.find(v => v.id === selectedId) ?? null;
+    if (!selected) {
+      selected = vehiclesHere[0];
+      this._vehicleUI?.setSelectedVehicleId(selected.id);
+    }
+    return selected;
+  }
+
+  _bindMarketTradeEvents(cityId, vehicleId) {
+    if (!vehicleId) return;
+
+    this._els.marketBody.querySelectorAll('.btn-market-buy').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const goodId = btn.dataset.good;
+        const qty = parseInt(document.getElementById(`market-qty-${goodId}`)?.value ?? '1', 10);
+        const vehicle = this._vehicleMgr?.getVehicle(vehicleId);
+        if (!vehicle) return;
+        const result = this._market.buy(cityId, goodId, qty, vehicle);
+        this._bus.publish('ui:toast', { message: result.message, type: result.ok ? 'good' : 'bad' });
+        if (result.ok) {
+          this._vehicleMgr?.syncState();
+          this._vehicleUI?.markDirty();
+          this._marketDirty = true;
+        }
+      });
+    });
+
+    this._els.marketBody.querySelectorAll('.btn-market-sell').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const goodId = btn.dataset.good;
+        const qty = parseInt(document.getElementById(`market-qty-${goodId}`)?.value ?? '1', 10);
+        const vehicle = this._vehicleMgr?.getVehicle(vehicleId);
+        if (!vehicle) return;
+        const result = this._market.sell(cityId, goodId, qty, vehicle);
+        this._bus.publish('ui:toast', { message: result.message, type: result.ok ? 'good' : 'bad' });
+        if (result.ok) {
+          this._vehicleMgr?.syncState();
+          this._vehicleUI?.markDirty();
+          this._marketDirty = true;
+        }
+      });
+    });
   }
 
   _renderCityOverview(cityId) {
@@ -441,6 +555,7 @@ export class UIManager {
       btn.classList.toggle('hidden', this._showingCityOverview);
     });
     this._els.cityOverview?.classList.toggle('hidden', !this._showingCityOverview);
+    this._els.marketTradeBar?.classList.toggle('hidden', this._showingCityOverview);
     document.querySelector('.market-hint')?.classList.toggle('hidden', this._showingCityOverview);
     document.getElementById('market-table')?.classList.toggle('hidden', this._showingCityOverview);
 

@@ -165,4 +165,8 @@ export class VehicleManager {
     this._vehicles = (savedVehicles ?? []).map(d => Vehicle.fromSave(d));
     this._syncState();
   }
+
+  syncState() {
+    this._syncState();
+  }
 }
