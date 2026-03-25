@@ -86,10 +86,11 @@
           </div>
         </div>
 
-        <!-- City View (hidden until city selected) -->
-        <div id="city-view" class="hidden">
-          <div id="city-header">
-            <button id="btn-back-map" class="menu-btn">&larr; Map</button>
+        <!-- City Modal (opened from the map) -->
+        <div id="city-modal" class="hidden">
+          <div id="city-view">
+            <div id="city-header">
+              <button id="btn-back-map" class="menu-btn">Close</button>
             <div>
               <h2 id="city-name">City Name</h2>
               <p id="city-description"></p>
@@ -106,39 +107,40 @@
                 <span id="city-rep-val">0</span>
               </div>
             </div>
-          </div>
+            </div>
 
-          <div class="city-tabs">
-            <button class="tab-btn active" data-tab="market">Market</button>
-            <button class="tab-btn" data-tab="vehicles">Vehicles</button>
-            <button class="tab-btn" data-tab="buildings">Buildings</button>
-          </div>
+            <div class="city-tabs">
+              <button class="tab-btn active" data-tab="market">Market</button>
+              <button class="tab-btn" data-tab="vehicles">Vehicles</button>
+              <button class="tab-btn" data-tab="buildings">Buildings</button>
+            </div>
 
-          <!-- Market Tab -->
-          <div id="tab-market" class="tab-content">
-            <p class="market-hint">Prices &amp; stock for reference. Go to the <strong>Vehicles</strong> tab to buy and sell.</p>
-            <table id="market-table">
-              <thead>
-                <tr>
-                  <th>Good</th>
-                  <th>Category</th>
-                  <th>Buy / Sell Price</th>
-                  <th>Stock</th>
-                  <th>Weight</th>
-                  <th>Trend</th>
-                  <th>Access</th>
-                </tr>
-              </thead>
-              <tbody id="market-body"></tbody>
-            </table>
-          </div>
+            <!-- Market Tab -->
+            <div id="tab-market" class="tab-content">
+              <p class="market-hint">Prices &amp; stock for reference. Go to the <strong>Vehicles</strong> tab to buy and sell.</p>
+              <table id="market-table">
+                <thead>
+                  <tr>
+                    <th>Good</th>
+                    <th>Category</th>
+                    <th>Buy / Sell Price</th>
+                    <th>Stock</th>
+                    <th>Weight</th>
+                    <th>Trend</th>
+                    <th>Access</th>
+                  </tr>
+                </thead>
+                <tbody id="market-body"></tbody>
+              </table>
+            </div>
 
-          <!-- Vehicles Tab -->
-          <div id="tab-vehicles" class="tab-content hidden"></div>
+            <!-- Vehicles Tab -->
+            <div id="tab-vehicles" class="tab-content hidden"></div>
 
-          <!-- Buildings Tab -->
-          <div id="tab-buildings" class="tab-content hidden">
-            <div id="buildings-grid"></div>
+            <!-- Buildings Tab -->
+            <div id="tab-buildings" class="tab-content hidden">
+              <div id="buildings-grid"></div>
+            </div>
           </div>
         </div>
 

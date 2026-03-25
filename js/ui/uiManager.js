@@ -21,8 +21,8 @@ export class UIManager {
     this._player = player;
     this._bus    = bus;
 
-    this._currentView   = 'map';
     this._currentCityId = null;
+    this._cityModalOpen = false;
     this._marketDirty   = false;
     this._lastGold      = -1;
     this._lastTier      = -1;
@@ -39,6 +39,7 @@ export class UIManager {
       date:            document.getElementById('ui-date'),
       cityList:        document.getElementById('city-list'),
       mapView:         document.getElementById('map-view'),
+      cityModal:       document.getElementById('city-modal'),
       cityView:        document.getElementById('city-view'),
       cityName:        document.getElementById('city-name'),
       cityDesc:        document.getElementById('city-description'),
@@ -81,6 +82,16 @@ export class UIManager {
 
     // Back to map
     document.getElementById('btn-back-map').addEventListener('click', () => this.showMap());
+
+    if (this._els.cityModal) {
+      this._els.cityModal.addEventListener('click', e => {
+        if (e.target === this._els.cityModal) this.showMap();
+      });
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && this._cityModalOpen) this.showMap();
+    });
 
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -135,7 +146,7 @@ export class UIManager {
     this._refreshTopBar();
     this._refreshDockedVehicles();
     if (this._vehicleUI) this._vehicleUI.render();
-    if (this._currentView === 'city' && this._currentCityId) {
+    if (this._cityModalOpen && this._currentCityId) {
       if (this._marketDirty) {
         this._refreshMarket(this._currentCityId);
         this._marketDirty = false;
@@ -292,21 +303,19 @@ export class UIManager {
   // ── View switching ───────────────────────────────────────────
 
   showMap() {
-    this._currentView   = 'map';
+    this._cityModalOpen = false;
     this._currentCityId = null;
-    this._els.mapView.classList.remove('hidden');
-    this._els.cityView.classList.add('hidden');
-    this._refreshCityList();
+    this._els.cityModal?.classList.add('hidden');
+    this._refreshCityList(this._player.currentCityId);
   }
 
   showCity(cityId) {
     const city = this._cities.get(cityId);
     if (!city) return;
-    this._currentView   = 'city';
+    this._cityModalOpen = true;
     this._currentCityId = cityId;
 
-    this._els.mapView.classList.add('hidden');
-    this._els.cityView.classList.remove('hidden');
+    this._els.cityModal?.classList.remove('hidden');
 
     this._els.cityName.textContent   = city.name;
     this._els.cityDesc.textContent   = city.description;
