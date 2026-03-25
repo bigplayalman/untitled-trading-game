@@ -851,6 +851,70 @@ ul { list-style: none; }
 }
 .market-hint strong { color: var(--brass-light); }
 
+#market-trade-bar {
+  margin-bottom: 10px;
+}
+
+.market-trade-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(18, 9, 2, 0.72);
+  border: 1px solid rgba(181,137,28,0.28);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.market-trade-panel strong {
+  color: var(--brass-light);
+}
+
+.market-trade-panel p {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.market-vehicle-picker {
+  min-width: 220px;
+  background: var(--wood-dark);
+  border: 1px solid var(--brass-dark);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 11px;
+  padding: 5px 8px;
+  border-radius: 4px;
+}
+
+.market-trade-empty {
+  border-left: 2px solid var(--blue-info);
+  padding-left: 10px;
+}
+
+.market-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 180px;
+}
+
+.market-qty-input {
+  width: 54px;
+  background: var(--wood-dark);
+  border: 1px solid var(--brass-dark);
+  color: var(--text-main);
+  font-family: var(--font-main);
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.market-holdings {
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
 #city-overview {
   display: flex;
   flex-direction: column;

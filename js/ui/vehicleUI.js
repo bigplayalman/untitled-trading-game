@@ -56,6 +56,11 @@ export class VehicleUI {
   }
 
   markDirty() { this._dirty = true; }
+  getSelectedVehicleId() { return this._selectedVehicleId; }
+  setSelectedVehicleId(vehicleId) {
+    this._selectedVehicleId = vehicleId;
+    this._dirty = true;
+  }
 
   render() {
     if (!this._dirty) return;
