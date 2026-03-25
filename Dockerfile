@@ -1,4 +1,4 @@
-# ── Ironveil Chronicles ──────────────────────────────────────────
+# ── Oumzy ────────────────────────────────────────────────────────
 # Pure static site served by nginx:alpine
 # No build step required - vanilla HTML/CSS/JS with ES modules
 # ─────────────────────────────────────────────────────────────────

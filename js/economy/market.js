@@ -1,17 +1,19 @@
 /**
  * market.js
- * Handles player buy/sell transactions and validates them against
- * player inventory, gold, and city stock.
+ * Handles player buy/sell transactions.
+ *
+ * All goods flow through vehicles — the player has no personal inventory.
+ *
+ * buy(cityId, goodId, qty, vehicle)
+ *   → goods go from city stock into vehicle.transport
+ *
+ * sell(cityId, goodId, qty, vehicle)
+ *   → goods go from vehicle.transport into city stock, gold to player
  */
 
 import { GOODS } from './goods.js';
 
 export class Market {
-  /**
-   * @param {object} state     - central game state
-   * @param {Map}    cities    - Map<id, City>
-   * @param {EventBus} bus
-   */
   constructor(state, cities, bus) {
     this._state  = state;
     this._cities = cities;
@@ -19,16 +21,30 @@ export class Market {
   }
 
   /**
-   * Player buys qty of goodId from cityId.
+   * Player buys goods into a vehicle's transport bay.
+   * @param {string}  cityId
+   * @param {string}  goodId
+   * @param {number}  qty
+   * @param {Vehicle} vehicle  - destination vehicle (must be idle at this city)
    * Returns { ok, message, cost }
    */
-  buy(cityId, goodId, qty) {
+  buy(cityId, goodId, qty, vehicle) {
     qty = Math.max(1, Math.floor(qty));
     const city   = this._cities.get(cityId);
     const good   = GOODS[goodId];
     const player = this._state.player;
 
     if (!city || !good) return { ok: false, message: 'Invalid city or good.' };
+
+    if (!vehicle) {
+      return { ok: false, message: 'Select a vehicle to load goods into.' };
+    }
+    if (vehicle.isTravelling) {
+      return { ok: false, message: `${vehicle.name} is currently en route.` };
+    }
+    if (vehicle.currentCityId !== cityId) {
+      return { ok: false, message: `${vehicle.name} is not at this city.` };
+    }
 
     // Check city stock
     if (!city.canBuy(goodId, qty)) {
@@ -36,36 +52,48 @@ export class Market {
       return { ok: false, message: `Not enough stock. City has ${stock} ${good.name}.` };
     }
 
-    // Check player can carry (weight * qty vs remaining capacity)
-    const currentLoad = this._getInventoryWeight(player.inventory);
-    const addWeight   = good.weight * qty;
-    if (currentLoad + addWeight > player.cargoCapacity) {
-      const remaining = Math.floor((player.cargoCapacity - currentLoad) / good.weight);
-      return { ok: false, message: `Not enough cargo space. Can carry ${remaining} more ${good.name}.` };
+    // Check vehicle transport capacity (weight-based)
+    const weightNeeded = good.weight * qty;
+    if (weightNeeded > vehicle.transportFree) {
+      const canLoad = vehicle.maxLoadable(goodId);
+      return {
+        ok: false,
+        message: canLoad > 0
+          ? `Not enough transport space. ${vehicle.name} can take ${canLoad} more ${good.name}.`
+          : `${vehicle.name} is full (${vehicle.transportUsed}/${vehicle.capacity} wt).`,
+      };
     }
 
-    // Check gold BEFORE touching city stock
+    // Check gold
     const cost = city.getBuyPrice(goodId) * qty;
     if (player.gold < cost) {
       return { ok: false, message: `Not enough gold. Need ${cost}g, have ${Math.floor(player.gold)}g.` };
     }
 
-    // All checks passed — commit transaction
+    // Commit
     city.playerBuys(goodId, qty);
     player.gold -= cost;
-    player.inventory[goodId] = (player.inventory[goodId] ?? 0) + qty;
+    vehicle.transport[goodId] = (vehicle.transport[goodId] ?? 0) + qty;
 
     this._state.stats.totalTrades++;
-    this._bus.publish('market:buy', { cityId, goodId, qty, cost, priceEach: Math.round(cost / qty) });
+    this._bus.publish('market:buy', {
+      cityId, goodId, qty, cost,
+      vehicleId: vehicle.id,
+      priceEach: Math.round(cost / qty),
+    });
 
-    return { ok: true, message: `Bought ${qty}x ${good.name} for ${cost}g.`, cost };
+    return { ok: true, message: `Bought ${qty}x ${good.name} for ${cost}g → ${vehicle.name}.`, cost };
   }
 
   /**
-   * Player sells qty of goodId to cityId.
+   * Player sells goods from a vehicle's transport bay.
+   * @param {string}  cityId
+   * @param {string}  goodId
+   * @param {number}  qty
+   * @param {Vehicle} vehicle  - source vehicle (must be at this city)
    * Returns { ok, message, earned }
    */
-  sell(cityId, goodId, qty) {
+  sell(cityId, goodId, qty, vehicle) {
     qty = Math.max(1, Math.floor(qty));
     const city   = this._cities.get(cityId);
     const good   = GOODS[goodId];
@@ -73,31 +101,36 @@ export class Market {
 
     if (!city || !good) return { ok: false, message: 'Invalid city or good.' };
 
-    const owned = player.inventory[goodId] ?? 0;
-    if (owned < qty) {
-      return { ok: false, message: `You only have ${owned} ${good.name}.` };
+    if (!vehicle) {
+      return { ok: false, message: 'Select a vehicle to sell from.' };
+    }
+    if (vehicle.isTravelling) {
+      return { ok: false, message: `${vehicle.name} is currently en route.` };
+    }
+    if (vehicle.currentCityId !== cityId) {
+      return { ok: false, message: `${vehicle.name} is not at this city.` };
+    }
+
+    const onboard = vehicle.transport[goodId] ?? 0;
+    if (onboard < qty) {
+      return { ok: false, message: `${vehicle.name} only has ${onboard} ${good.name}.` };
     }
 
     const earned = city.playerSells(goodId, qty);
 
     // Commit
-    player.inventory[goodId] = owned - qty;
-    if (player.inventory[goodId] === 0) delete player.inventory[goodId];
+    vehicle.transport[goodId] = onboard - qty;
+    if (vehicle.transport[goodId] === 0) delete vehicle.transport[goodId];
     player.gold += earned;
 
     this._state.stats.totalGoldEarned += earned;
     this._state.stats.totalTrades++;
-    this._bus.publish('market:sell', { cityId, goodId, qty, earned, priceEach: Math.round(earned / qty) });
+    this._bus.publish('market:sell', {
+      cityId, goodId, qty, earned,
+      vehicleId: vehicle.id,
+      priceEach: Math.round(earned / qty),
+    });
 
     return { ok: true, message: `Sold ${qty}x ${good.name} for ${earned}g.`, earned };
-  }
-
-  /** Inventory weight helper */
-  _getInventoryWeight(inventory) {
-    let total = 0;
-    for (const [id, qty] of Object.entries(inventory)) {
-      total += (GOODS[id]?.weight ?? 1) * qty;
-    }
-    return total;
   }
 }

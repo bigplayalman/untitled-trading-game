@@ -2,52 +2,59 @@
  * vehicles.js
  * Vehicle class and vehicle type definitions.
  *
- * Vehicles carry cargo between cities. The player manually loads/unloads
- * cargo and dispatches vehicles to a destination. On arrival, cargo sits
- * in transit storage at the destination city until the player collects it.
+ * Vehicles are the only way to transport goods between cities.
+ * The player has no personal carrying capacity — all goods travel
+ * via vehicle transport bays.
+ *
+ * Transport capacity is weight-based:
+ *   - Raw goods are heavy (weight 2-4) — fewer units per vehicle
+ *   - Processed goods are medium (weight 1-2)
+ *   - Finished goods are light (weight 1) — most efficient to ship
  */
+
+import { GOODS } from '../economy/goods.js';
 
 /** Vehicle type definitions */
 export const VEHICLE_TYPES = {
   hand_cart: {
-    id:       'hand_cart',
-    name:     'Hand Cart',
-    icon:     '🛒',
-    speed:    20,      // km per game-hour
-    capacity: 30,      // cargo units
-    cost:     0,       // free starter vehicle
-    minTier:  0,
-    description: 'A simple wooden cart. Slow but free.',
+    id:          'hand_cart',
+    name:        'Hand Cart',
+    icon:        '🛒',
+    speed:       20,    // km per game-hour
+    capacity:    30,    // transport capacity in weight units
+    cost:        0,
+    minTier:     0,
+    description: 'A simple wooden cart. Slow but free. Carries 30 wt — good for finished goods.',
   },
   horse_wagon: {
-    id:       'horse_wagon',
-    name:     'Horse Wagon',
-    icon:     '🐴',
-    speed:    40,
-    capacity: 80,
-    cost:     200,
-    minTier:  0,
-    description: 'A sturdy wagon pulled by two horses. Good capacity.',
+    id:          'horse_wagon',
+    name:        'Horse Wagon',
+    icon:        '🐴',
+    speed:       40,
+    capacity:    80,
+    cost:        200,
+    minTier:     0,
+    description: 'A sturdy wagon pulled by two horses. 80 wt capacity.',
   },
   steam_wagon: {
-    id:       'steam_wagon',
-    name:     'Steam Wagon',
-    icon:     '🚂',
-    speed:    70,
-    capacity: 150,
-    cost:     800,
-    minTier:  1,
-    description: 'Coal-powered road hauler. Fast and reliable.',
+    id:          'steam_wagon',
+    name:        'Steam Wagon',
+    icon:        '🚂',
+    speed:       70,
+    capacity:    150,
+    cost:        800,
+    minTier:     1,
+    description: 'Coal-powered road hauler. 150 wt — viable for bulk raw goods.',
   },
   airship: {
-    id:       'airship',
-    name:     'Airship',
-    icon:     '🎈',
-    speed:    120,
-    capacity: 300,
-    cost:     3000,
-    minTier:  2,
-    description: 'Aetheric lift vessel. Ignores terrain, moves between any connected cities at top speed.',
+    id:          'airship',
+    name:        'Airship',
+    icon:        '🎈',
+    speed:       120,
+    capacity:    300,
+    cost:        3000,
+    minTier:     2,
+    description: 'Aetheric lift vessel. 300 wt — the ultimate bulk transporter.',
   },
 };
 
@@ -55,8 +62,8 @@ let _nextId = 1;
 
 export class Vehicle {
   /**
-   * @param {string} typeId   - key from VEHICLE_TYPES
-   * @param {string} cityId   - starting city
+   * @param {string} typeId  - key from VEHICLE_TYPES
+   * @param {string} cityId  - starting city
    */
   constructor(typeId, cityId) {
     const def = VEHICLE_TYPES[typeId];
@@ -67,89 +74,119 @@ export class Vehicle {
     this.name     = def.name;
     this.icon     = def.icon;
     this.speed    = def.speed;
-    this.capacity = def.capacity;
+    this.capacity = def.capacity; // weight units
 
-    // Cargo: { goodId: qty }
-    this.cargo    = {};
+    // Transport bay: { goodId: qty }
+    this.transport = {};
 
     // Location / travel state
-    this.status           = 'idle';   // 'idle' | 'travelling' | 'arrived'
-    this.currentCityId    = cityId;   // city where vehicle is idle or last departed from
-    this.fromCityId       = cityId;
-    this.toCityId         = null;
-    this.distanceTotal    = 0;
-    this.distanceTravelled= 0;
+    this.status            = 'idle'; // 'idle' | 'travelling'
+    this.currentCityId     = cityId;
+    this.fromCityId        = cityId;
+    this.toCityId          = null;
+    this.distanceTotal     = 0;
+    this.distanceTravelled = 0;
 
-    // Derived: 0-1 progress for map rendering
-    this.progress = 0;
-
-    // ETA tracking
-    this.etaHours = 0;
+    // 0-1 progress for map rendering
+    this.progress  = 0;
+    this.etaHours  = 0;
   }
 
-  /** How many cargo units are currently loaded */
-  get cargoUsed() {
-    return Object.values(this.cargo).reduce((sum, q) => sum + q, 0);
+  // ── Transport capacity (weight-based) ──────────────────────
+
+  /** Total weight currently loaded */
+  get transportUsed() {
+    return Object.entries(this.transport).reduce(
+      (sum, [id, qty]) => sum + (GOODS[id]?.weight ?? 1) * qty, 0
+    );
   }
 
-  get cargoFree() {
-    return this.capacity - this.cargoUsed;
+  /** Remaining weight capacity */
+  get transportFree() {
+    return this.capacity - this.transportUsed;
   }
+
+  /** Max units of a specific good that can still be loaded */
+  maxLoadable(goodId) {
+    const w = GOODS[goodId]?.weight ?? 1;
+    return Math.floor(this.transportFree / w);
+  }
+
+  // ── State helpers ──────────────────────────────────────────
 
   get isIdle()       { return this.status === 'idle'; }
   get isTravelling() { return this.status === 'travelling'; }
-  get hasArrived()   { return this.status === 'arrived'; }
+
+  // ── Transport operations ───────────────────────────────────
 
   /**
-   * Load goods from a source inventory onto this vehicle.
+   * Load goods into this vehicle's transport bay.
+   * sourceInventory is mutated (goods removed from it).
    * Returns { ok, message }
    */
-  loadCargo(goodId, qty, sourceInventory) {
+  load(goodId, qty, sourceInventory) {
     if (!this.isIdle) return { ok: false, message: `${this.name} is not idle.` };
     if (qty <= 0)     return { ok: false, message: 'Invalid quantity.' };
 
+    const good      = GOODS[goodId];
     const available = sourceInventory[goodId] ?? 0;
-    if (available < qty) return { ok: false, message: `Only ${available} available to load.` };
-    if (this.cargoFree < qty) {
-      return { ok: false, message: `Only ${this.cargoFree} cargo space remaining on ${this.name}.` };
+    const weightNeeded = (good?.weight ?? 1) * qty;
+
+    if (available < qty) {
+      return { ok: false, message: `Only ${available} available.` };
+    }
+    if (weightNeeded > this.transportFree) {
+      const canLoad = this.maxLoadable(goodId);
+      return {
+        ok: false,
+        message: canLoad > 0
+          ? `Not enough transport space. Can load ${canLoad} more ${good?.name ?? goodId}.`
+          : `${this.name} is full.`,
+      };
     }
 
     sourceInventory[goodId] = available - qty;
     if (sourceInventory[goodId] === 0) delete sourceInventory[goodId];
-    this.cargo[goodId] = (this.cargo[goodId] ?? 0) + qty;
-    return { ok: true, message: `Loaded ${qty} onto ${this.name}.` };
+    this.transport[goodId] = (this.transport[goodId] ?? 0) + qty;
+    return { ok: true, message: `Loaded ${qty}x ${good?.name ?? goodId} onto ${this.name}.` };
   }
 
   /**
-   * Unload goods from vehicle back into a destination inventory.
+   * Remove goods from this vehicle's transport bay.
+   * destInventory is mutated (goods added to it).
    * Returns { ok, message }
    */
-  unloadCargo(goodId, qty, destInventory) {
+  unload(goodId, qty, destInventory) {
     if (this.isTravelling) return { ok: false, message: `${this.name} is en route.` };
-    const onboard = this.cargo[goodId] ?? 0;
-    if (onboard < qty) return { ok: false, message: `Only ${onboard} of that on board.` };
+    const onboard = this.transport[goodId] ?? 0;
+    if (onboard < qty) {
+      return { ok: false, message: `Only ${onboard} on board.` };
+    }
 
-    this.cargo[goodId] = onboard - qty;
-    if (this.cargo[goodId] === 0) delete this.cargo[goodId];
+    this.transport[goodId] = onboard - qty;
+    if (this.transport[goodId] === 0) delete this.transport[goodId];
     destInventory[goodId] = (destInventory[goodId] ?? 0) + qty;
     return { ok: true, message: `Unloaded ${qty} from ${this.name}.` };
   }
 
-  /** Unload ALL cargo into destination inventory */
+  /** Remove ALL goods from transport bay into destInventory */
   unloadAll(destInventory) {
-    for (const [goodId, qty] of Object.entries(this.cargo)) {
+    for (const [goodId, qty] of Object.entries(this.transport)) {
       destInventory[goodId] = (destInventory[goodId] ?? 0) + qty;
     }
-    this.cargo = {};
+    this.transport = {};
   }
+
+  // ── Travel ─────────────────────────────────────────────────
 
   /**
    * Dispatch vehicle to a destination city.
    * @param {string} toCityId
    * @param {number} distance  km
+   * Returns { ok, message }
    */
   dispatch(toCityId, distance) {
-    if (!this.isIdle) return { ok: false, message: `${this.name} is already travelling.` };
+    if (!this.isIdle)              return { ok: false, message: `${this.name} is already travelling.` };
     if (toCityId === this.currentCityId) return { ok: false, message: 'Already at that city.' };
 
     this.status            = 'travelling';
@@ -159,41 +196,31 @@ export class Vehicle {
     this.distanceTravelled = 0;
     this.progress          = 0;
     this.etaHours          = distance / this.speed;
-    return { ok: true, message: `${this.name} dispatched to ${toCityId}.` };
+    return { ok: true, message: `${this.name} dispatched.` };
   }
 
   /**
-   * Advance travel progress.
+   * Advance travel. Returns true if arrived this tick.
    * @param {number} gameHoursElapsed
-   * @returns {boolean} true if arrived this tick
    */
   tick(gameHoursElapsed) {
     if (!this.isTravelling) return false;
 
-    const kmTravelled = this.speed * gameHoursElapsed;
     this.distanceTravelled = Math.min(
       this.distanceTotal,
-      this.distanceTravelled + kmTravelled
+      this.distanceTravelled + this.speed * gameHoursElapsed
     );
-    this.progress = this.distanceTravelled / this.distanceTotal;
-    this.etaHours = Math.max(0, (this.distanceTotal - this.distanceTravelled) / this.speed);
+    this.progress  = this.distanceTravelled / this.distanceTotal;
+    this.etaHours  = Math.max(0, (this.distanceTotal - this.distanceTravelled) / this.speed);
 
     if (this.distanceTravelled >= this.distanceTotal) {
-      this.status        = 'arrived';
-      this.progress      = 1;
+      this.status        = 'idle';
+      this.progress      = 0;
       this.currentCityId = this.toCityId;
       this.etaHours      = 0;
-      return true; // signal arrival
+      return true;
     }
     return false;
-  }
-
-  /** After arrival is processed, set vehicle back to idle at destination */
-  setIdle() {
-    this.status    = 'idle';
-    this.fromCityId= this.currentCityId;
-    this.toCityId  = null;
-    this.progress  = 0;
   }
 
   getEtaString() {
@@ -203,6 +230,8 @@ export class Vehicle {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   }
 
+  // ── Serialisation ──────────────────────────────────────────
+
   serialize() {
     return {
       id:                this.id,
@@ -211,7 +240,7 @@ export class Vehicle {
       icon:              this.icon,
       speed:             this.speed,
       capacity:          this.capacity,
-      cargo:             { ...this.cargo },
+      transport:         { ...this.transport },
       status:            this.status,
       currentCityId:     this.currentCityId,
       fromCityId:        this.fromCityId,
@@ -226,6 +255,9 @@ export class Vehicle {
   static fromSave(data) {
     const v = new Vehicle(data.typeId, data.currentCityId);
     Object.assign(v, data);
+    // Support legacy saves that used 'cargo' key
+    if (!v.transport && data.cargo) v.transport = data.cargo;
+    if (!v.transport) v.transport = {};
     return v;
   }
 }

@@ -35,7 +35,6 @@ export class SaveLoad {
         time:    this._time.save(),
         state:   this._serializeState(),
         cities:  this._serializeCities(),
-        transit: this._vehicleMgr ? this._vehicleMgr.serializeTransit() : {},
         savedAt: Date.now(),
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(payload));
