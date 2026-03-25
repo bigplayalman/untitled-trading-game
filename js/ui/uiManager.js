@@ -23,6 +23,7 @@ export class UIManager {
 
     this._currentCityId = null;
     this._cityModalOpen = false;
+    this._showingCityOverview = false;
     this._marketDirty   = false;
     this._lastGold      = -1;
     this._lastTier      = -1;
@@ -50,6 +51,7 @@ export class UIManager {
       cityRepTier:     document.getElementById('city-rep-tier'),
       cityRepBar:      document.getElementById('city-rep-bar'),
       cityRepVal:      document.getElementById('city-rep-val'),
+      cityOverview:    document.getElementById('city-overview'),
       notifications:   document.getElementById('notifications'),
       questTitle:      document.getElementById('quest-title'),
       questText:       document.getElementById('quest-text'),
@@ -250,6 +252,11 @@ export class UIManager {
     const city = this._cities.get(cityId);
     if (!city) return;
 
+    if (this._showingCityOverview) {
+      this._renderCityOverview(cityId);
+      return;
+    }
+
     const rep = getRepForCity(this._state, cityId);
 
     const rows = Object.values(GOODS).map(good => {
@@ -287,6 +294,103 @@ export class UIManager {
     this._els.marketBody.innerHTML = rows;
   }
 
+  _renderCityOverview(cityId) {
+    const city = this._cities.get(cityId);
+    if (!city || !this._els.cityOverview) return;
+
+    const topProduced = Object.entries(city.naturalProduction)
+      .filter(([, qty]) => qty > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+
+    const weakProduction = Object.values(GOODS)
+      .filter(good => (city.naturalProduction[good.id] ?? 0) === 0)
+      .sort((a, b) => (city.dailyConsumption[b.id] ?? 0) - (city.dailyConsumption[a.id] ?? 0))
+      .slice(0, 3);
+
+    const inventoryPairs = Object.entries(city.inventory);
+    const mostStocked = [...inventoryPairs]
+      .sort((a, b) => b[1] - a[1])
+      .filter(([, qty]) => qty > 0)
+      .slice(0, 3);
+
+    const lacking = Object.values(GOODS)
+      .map(good => {
+        const stock = city.inventory[good.id] ?? 0;
+        const need  = city.dailyConsumption[good.id] ?? 0;
+        const score = need > 0 ? stock - (need * 3) : stock;
+        return { good, stock, need, score };
+      })
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 3);
+
+    const renderChipList = (items, fallback) => {
+      if (!items.length) return `<p>${fallback}</p>`;
+      return `<div class="city-overview-list">${
+        items.join('')
+      }</div>`;
+    };
+
+    const producedHtml = renderChipList(
+      topProduced.map(([goodId, qty]) => {
+        const good = GOODS[goodId];
+        return `<span class="city-overview-chip">${good?.icon ?? ''} ${good?.name ?? goodId} <strong>+${qty}/day</strong></span>`;
+      }),
+      'No standout production lines yet.'
+    );
+
+    const weakHtml = renderChipList(
+      weakProduction.map(good =>
+        `<span class="city-overview-chip">${good.icon} ${good.name}</span>`
+      ),
+      'This city produces a bit of everything.'
+    );
+
+    const stockedHtml = renderChipList(
+      mostStocked.map(([goodId, qty]) => {
+        const good = GOODS[goodId];
+        return `<span class="city-overview-chip">${good?.icon ?? ''} ${good?.name ?? goodId} <strong>${qty} in stock</strong></span>`;
+      }),
+      'Warehouses are currently thin.'
+    );
+
+    const lackingHtml = renderChipList(
+      lacking.map(({ good, stock, need }) =>
+        `<span class="city-overview-chip">${good.icon} ${good.name} <strong>${stock} on hand${need > 0 ? `, needs ${need}/day` : ''}</strong></span>`
+      ),
+      'Nothing is under obvious pressure right now.'
+    );
+
+    this._els.cityOverview.innerHTML = `
+      <section class="city-overview-intro">
+        <h3>${city.name}</h3>
+        <p>${city.description}</p>
+      </section>
+      <section class="city-overview-grid">
+        <article class="city-overview-card">
+          <h4>Strong Production</h4>
+          <p>Goods this city naturally produces in the largest volume.</p>
+          ${producedHtml}
+        </article>
+        <article class="city-overview-card">
+          <h4>Weak Production</h4>
+          <p>Goods this city does not naturally produce and usually depends on outside supply for.</p>
+          ${weakHtml}
+        </article>
+        <article class="city-overview-card">
+          <h4>Most Stocked</h4>
+          <p>What the local market currently has the most of.</p>
+          ${stockedHtml}
+        </article>
+        <article class="city-overview-card">
+          <h4>Current Shortages</h4>
+          <p>Goods that look scarce relative to local demand.</p>
+          ${lackingHtml}
+        </article>
+      </section>
+    `;
+  }
+
   // ── Buildings ────────────────────────────────────────────────
 
   _renderBuildings(cityId) {
@@ -305,6 +409,7 @@ export class UIManager {
   showMap() {
     this._cityModalOpen = false;
     this._currentCityId = null;
+    this._showingCityOverview = false;
     this._els.cityModal?.classList.add('hidden');
     this._refreshCityList(this._player.currentCityId);
   }
@@ -317,6 +422,10 @@ export class UIManager {
 
     this._els.cityModal?.classList.remove('hidden');
 
+    const hasVehiclesHere = !!this._vehicleMgr?.getVehiclesAt(cityId).length;
+    const hasBuildingsHere = (city.playerBuildings?.length ?? 0) > 0;
+    this._showingCityOverview = !hasVehiclesHere && !hasBuildingsHere;
+
     this._els.cityName.textContent   = city.name;
     this._els.cityDesc.textContent   = city.description;
     this._els.cityPop.textContent    = city.population.toLocaleString();
@@ -327,6 +436,13 @@ export class UIManager {
     document.querySelector('.tab-btn[data-tab="market"]').classList.add('active');
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
     document.getElementById('tab-market').classList.remove('hidden');
+
+    document.querySelectorAll('.tab-btn[data-tab="vehicles"], .tab-btn[data-tab="buildings"]').forEach(btn => {
+      btn.classList.toggle('hidden', this._showingCityOverview);
+    });
+    this._els.cityOverview?.classList.toggle('hidden', !this._showingCityOverview);
+    document.querySelector('.market-hint')?.classList.toggle('hidden', this._showingCityOverview);
+    document.getElementById('market-table')?.classList.toggle('hidden', this._showingCityOverview);
 
     this._marketDirty = true;
     this._lastDockedHash = '';

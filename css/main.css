@@ -851,6 +851,82 @@ ul { list-style: none; }
 }
 .market-hint strong { color: var(--brass-light); }
 
+#city-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.city-overview-intro {
+  background: rgba(18, 9, 2, 0.7);
+  border: 1px solid rgba(181,137,28,0.28);
+  border-radius: 6px;
+  padding: 14px;
+}
+
+.city-overview-intro h3 {
+  font-size: 14px;
+  color: var(--brass-light);
+  margin-bottom: 8px;
+}
+
+.city-overview-intro p {
+  line-height: 1.7;
+  color: var(--parchment);
+}
+
+.city-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.city-overview-card {
+  background: var(--wood-dark);
+  border: 1px solid var(--brass-dark);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.city-overview-card h4 {
+  font-size: 10px;
+  color: var(--brass);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.city-overview-card p {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.city-overview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.city-overview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(181,137,28,0.08);
+  border: 1px solid rgba(181,137,28,0.24);
+  font-size: 11px;
+  color: var(--text-main);
+}
+
+.city-overview-chip strong {
+  color: var(--brass-light);
+  font-weight: normal;
+}
+
 /* Vehicle cards */
 .vehicle-card {
   background: var(--wood-dark);
