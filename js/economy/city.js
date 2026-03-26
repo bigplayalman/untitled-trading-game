@@ -114,6 +114,7 @@ export class City {
     const price = this.getBuyPrice(goodId);
     const total = price * qty;
     this.inventory[goodId] = Math.max(0, (this.inventory[goodId] ?? 0) - qty);
+    this.priceEngine.recalculate();
     return total;
   }
 
@@ -122,6 +123,7 @@ export class City {
     const price = this.getSellPrice(goodId);
     const total = price * qty;
     this.inventory[goodId] = (this.inventory[goodId] ?? 0) + qty;
+    this.priceEngine.recalculate();
     return total;
   }
 
@@ -149,7 +151,9 @@ export class City {
   loadSave(data) {
     this.population      = data.population ?? this.population;
     this.wealth          = data.wealth     ?? this.wealth;
-    this.inventory       = { ...data.inventory };
+    Object.keys(this.inventory).forEach(id => {
+      this.inventory[id] = data.inventory?.[id] ?? 0;
+    });
     this.playerBuildings = data.playerBuildings ?? [];
     if (data.priceEngine) this.priceEngine.load(data.priceEngine);
   }
