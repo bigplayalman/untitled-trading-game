@@ -276,6 +276,21 @@ export class UIManager {
       return;
     }
 
+    if (this._state.player.tier < 1) {
+      if (this._els.marketTradeBar) this._els.marketTradeBar.innerHTML = '';
+      this._els.marketBody.innerHTML = `
+        <tr>
+          <td colspan="8">
+            <div class="market-lock-panel">
+              <strong>Market Access Locked</strong>
+              <p>Cid has not yet put his trade papers in your hands. Until you enter the merchant class, guild trading remains closed to you.</p>
+            </div>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
     const rep = getRepForCity(this._state, cityId);
     const vehiclesHere = this._vehicleMgr?.getVehiclesAt(cityId) ?? [];
     const selectedVehicle = this._resolveMarketVehicle(cityId, vehiclesHere);
@@ -704,7 +719,7 @@ export class UIManager {
       btn.textContent = choice.text;
       btn.addEventListener('click', () => {
         if (choice.action === 'name') {
-          this._showNamePrompt(milestone.id);
+          this._showNamePrompt(milestone.id, choice.next);
         } else if (choice.action === 'close' || !choice.next) {
           this._els.dialogue.classList.add('hidden');
           this._bus.publish('dialogue:closed', { milestoneId: milestone.id });
@@ -717,10 +732,11 @@ export class UIManager {
     this._time.setSpeed(0);
   }
 
-  _showNamePrompt(milestoneId) {
+  _showNamePrompt(milestoneId, nextMilestoneId = null) {
     this._els.dialogue.classList.add('hidden');
     this._els.nameOverlay?.classList.remove('hidden');
     this._els.nameOverlay.dataset.milestoneId = milestoneId;
+    this._els.nameOverlay.dataset.nextMilestoneId = nextMilestoneId ?? '';
     if (this._els.nameInput) {
       this._els.nameInput.value = this._state.player.name ?? '';
       setTimeout(() => this._els.nameInput?.focus(), 0);
@@ -740,7 +756,12 @@ export class UIManager {
     this._state.player.name = name;
     this._els.nameOverlay?.classList.add('hidden');
     this.toast(`You are now known as ${name}.`, 'good');
-    this.addNotification(`The old peddler learns your name: ${name}.`, 'info');
+    this.addNotification(`Cid learns your name: ${name}.`, 'info');
+    const nextMilestoneId = this._els.nameOverlay?.dataset.nextMilestoneId;
+    if (nextMilestoneId) {
+      this._bus.publish('dialogue:choice', { next: nextMilestoneId });
+      return;
+    }
     this._bus.publish('dialogue:closed', {
       milestoneId: this._els.nameOverlay?.dataset.milestoneId ?? 'intro_03',
       playerName: name,

@@ -1039,6 +1039,22 @@ ul { list-style: none; }
   white-space: nowrap;
 }
 
+.market-lock-panel {
+  padding: 18px 12px;
+  text-align: left;
+}
+
+.market-lock-panel strong {
+  display: block;
+  color: var(--brass-light);
+  margin-bottom: 6px;
+}
+
+.market-lock-panel p {
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
 #city-overview {
   display: flex;
   flex-direction: column;
