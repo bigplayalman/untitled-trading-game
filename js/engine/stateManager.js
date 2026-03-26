@@ -1,8 +1,9 @@
 /**
  * stateManager.js
  * Central event bus + game state container.
- * All systems read/write game state through here.
  */
+
+import { INITIAL_STATE, TIER_NAMES } from '../data/player.js';
 
 export class EventBus {
   constructor() {
@@ -12,7 +13,6 @@ export class EventBus {
   subscribe(event, callback) {
     if (!this._listeners[event]) this._listeners[event] = [];
     this._listeners[event].push(callback);
-    // Return unsubscribe function
     return () => {
       this._listeners[event] = this._listeners[event].filter(cb => cb !== callback);
     };
@@ -21,49 +21,17 @@ export class EventBus {
   publish(event, data) {
     if (!this._listeners[event]) return;
     for (const cb of this._listeners[event]) {
-      try { cb(data); } catch (e) { console.error(`EventBus error on ${event}:`, e); }
+      try {
+        cb(data);
+      } catch (error) {
+        console.error(`EventBus error on ${event}:`, error);
+      }
     }
   }
 }
 
 export function createInitialState() {
-  return {
-    player: {
-      name: '',
-      gold: 50,
-      reputation: {
-        cogsworth:   10,   // home base — small head start
-        ironhaven:    0,
-        verdania:     0,
-        steamport:    0,
-        crystaldeep:  0,
-        millhurst:    0,
-        windhollow:   0,
-      },
-      currentCityId: 'cogsworth',
-      tier: 0,             // 0=Peddler, 1=Merchant, 2=Manufacturer, 3=Magnate, 4=Governor, 5=King
-    },
-    vehicles: [],          // Vehicle objects
-    routes:   [],          // Active trade routes
-    cities:   {},          // { cityId: CityState }
-    milestones: {
-      completed: [],
-      active: 'intro_01',
-    },
-    flags: {},             // story/event flags
-    stats: {
-      totalGoldEarned: 0,
-      totalTrades: 0,
-      daysSurvived: 0,
-    },
-  };
+  return JSON.parse(JSON.stringify(INITIAL_STATE));
 }
 
-export const TIER_NAMES = [
-  'Peddler',
-  'Merchant',
-  'Manufacturer',
-  'Magnate',
-  'Governor',
-  'King',
-];
+export { TIER_NAMES };
