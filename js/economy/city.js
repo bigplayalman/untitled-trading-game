@@ -86,6 +86,7 @@ export class City {
     const price = this.getBuyPrice(goodId);
     const total = price * qty;
     this.inventory[goodId] = Math.max(0, (this.inventory[goodId] ?? 0) - qty);
+    this.priceEngine.recalculate();
     return total;
   }
 
@@ -93,6 +94,7 @@ export class City {
     const price = this.getSellPrice(goodId);
     const total = price * qty;
     this.inventory[goodId] = (this.inventory[goodId] ?? 0) + qty;
+    this.priceEngine.recalculate();
     return total;
   }
 
