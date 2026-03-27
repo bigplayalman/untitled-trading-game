@@ -9,6 +9,7 @@
 
 import { GOODS }                              from '../economy/goods.js';
 import { TIER_NAMES }                         from '../engine/stateManager.js';
+import { VEHICLE_TYPES }                      from '../player/vehicles.js';
 import { getRepForCity, getRepTier,
          getRepProgress,
          gainFromTrade }                      from '../player/reputation.js';
@@ -34,6 +35,8 @@ export class UIManager {
 
     this._vehicleUI  = null;
     this._vehicleMgr = null;
+    this._npcTradeMgr = null;
+    this._lastLeaderboardHash = '';
 
     this._els = {
       gold:            document.getElementById('ui-gold'),
@@ -55,6 +58,8 @@ export class UIManager {
       cityOverview:    document.getElementById('city-overview'),
       marketTradeBar:  document.getElementById('market-trade-bar'),
       fleetMenuPanel:  document.getElementById('fleet-menu-panel'),
+      leaderboardMenuPanel: document.getElementById('leaderboard-menu-panel'),
+      leaderboardList: document.getElementById('leaderboard-list'),
       notifications:   document.getElementById('notifications'),
       buildingsGrid:   document.getElementById('buildings-grid'),
       dialogue:        document.getElementById('dialogue-overlay'),
@@ -73,6 +78,7 @@ export class UIManager {
 
   setVehicleUI(vehicleUI)   { this._vehicleUI  = vehicleUI; }
   setVehicleManager(mgr)    { this._vehicleMgr = mgr; }
+  setNpcTradeManager(mgr)   { this._npcTradeMgr = mgr; }
 
   _bindEvents() {
     // Speed buttons
@@ -89,6 +95,7 @@ export class UIManager {
     document.getElementById('btn-back-map').addEventListener('click', () => this.showMap());
     document.getElementById('btn-menu-map')?.addEventListener('click', () => this.showMap());
     document.getElementById('btn-menu-fleet')?.addEventListener('click', () => this.toggleFleetMenu());
+    document.getElementById('btn-menu-leaderboard')?.addEventListener('click', () => this.toggleLeaderboardMenu());
 
     if (this._els.cityModal) {
       this._els.cityModal.addEventListener('click', e => {
@@ -98,14 +105,25 @@ export class UIManager {
 
     document.addEventListener('click', e => {
       const fleetBtn = document.getElementById('btn-menu-fleet');
-      if (!this._els.fleetMenuPanel || this._els.fleetMenuPanel.classList.contains('hidden')) return;
-      if (this._els.fleetMenuPanel.contains(e.target) || fleetBtn?.contains(e.target)) return;
-      this.hideFleetMenu();
+      const leaderboardBtn = document.getElementById('btn-menu-leaderboard');
+
+      if (this._els.fleetMenuPanel && !this._els.fleetMenuPanel.classList.contains('hidden')) {
+        if (!this._els.fleetMenuPanel.contains(e.target) && !fleetBtn?.contains(e.target)) {
+          this.hideFleetMenu();
+        }
+      }
+
+      if (this._els.leaderboardMenuPanel && !this._els.leaderboardMenuPanel.classList.contains('hidden')) {
+        if (!this._els.leaderboardMenuPanel.contains(e.target) && !leaderboardBtn?.contains(e.target)) {
+          this.hideLeaderboardMenu();
+        }
+      }
     });
 
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && this._cityModalOpen) this.showMap();
       if (e.key === 'Escape' && !this._els.fleetMenuPanel?.classList.contains('hidden')) this.hideFleetMenu();
+      if (e.key === 'Escape' && !this._els.leaderboardMenuPanel?.classList.contains('hidden')) this.hideLeaderboardMenu();
     });
 
     // Tab switching
@@ -147,6 +165,10 @@ export class UIManager {
     this._bus.subscribe('vehicle:dispatched', () => { this._lastDockedHash = ''; });
     this._bus.subscribe('vehicle:purchased',  () => { this._lastDockedHash = ''; });
     this._bus.subscribe('vehicle:transportChanged', () => { this._lastDockedHash = ''; });
+    this._bus.subscribe('market:buy',         () => { this._lastLeaderboardHash = ''; });
+    this._bus.subscribe('market:sell',        () => { this._lastLeaderboardHash = ''; });
+    this._bus.subscribe('vehicle:purchased',  () => { this._lastLeaderboardHash = ''; });
+    this._bus.subscribe('vehicle:transportChanged', () => { this._lastLeaderboardHash = ''; });
 
     // Reputation events — refresh market and rep display
     this._bus.subscribe('reputation:gained', ({ cityId }) => {
@@ -163,6 +185,7 @@ export class UIManager {
     this._refreshTopBar();
     this._refreshCargoSidebar();
     this._refreshDockedVehicles();
+    this._refreshLeaderboard();
     if (this._vehicleUI) this._vehicleUI.render();
     if (this._cityModalOpen && this._currentCityId) {
       if (this._marketDirty) {
@@ -526,6 +549,7 @@ export class UIManager {
     this._showingCityOverview = false;
     this._els.cityModal?.classList.add('hidden');
     this.hideFleetMenu(false);
+    this.hideLeaderboardMenu(false);
     this._setActiveTopMenu('map');
   }
 
@@ -535,6 +559,7 @@ export class UIManager {
     this._cityModalOpen = true;
     this._currentCityId = cityId;
     this.hideFleetMenu(false);
+    this.hideLeaderboardMenu(false);
     this._setActiveTopMenu('map');
 
     this._els.cityModal?.classList.remove('hidden');
@@ -570,6 +595,7 @@ export class UIManager {
   }
 
   toggleFleetMenu() {
+    this.hideLeaderboardMenu(false);
     if (this._els.fleetMenuPanel?.classList.contains('hidden')) {
       this._els.fleetMenuPanel.classList.remove('hidden');
       this._setActiveTopMenu('fleet');
@@ -583,9 +609,85 @@ export class UIManager {
     if (resetMenu) this._setActiveTopMenu('map');
   }
 
+  toggleLeaderboardMenu() {
+    this.hideFleetMenu(false);
+    if (this._els.leaderboardMenuPanel?.classList.contains('hidden')) {
+      this._refreshLeaderboard(true);
+      this._els.leaderboardMenuPanel.classList.remove('hidden');
+      this._setActiveTopMenu('leaderboard');
+      return;
+    }
+    this.hideLeaderboardMenu();
+  }
+
+  hideLeaderboardMenu(resetMenu = true) {
+    this._els.leaderboardMenuPanel?.classList.add('hidden');
+    if (resetMenu) this._setActiveTopMenu('map');
+  }
+
   _setActiveTopMenu(active) {
     document.getElementById('btn-menu-map')?.classList.toggle('active', active === 'map');
     document.getElementById('btn-menu-fleet')?.classList.toggle('active', active === 'fleet');
+    document.getElementById('btn-menu-leaderboard')?.classList.toggle('active', active === 'leaderboard');
+  }
+
+  _refreshLeaderboard(force = false) {
+    if (!this._els.leaderboardMenuPanel || this._els.leaderboardMenuPanel.classList.contains('hidden')) return;
+
+    const entries = this._buildLeaderboardEntries();
+    const hash = entries.map(entry => `${entry.id}:${entry.netWorth}`).join('|');
+    if (!force && hash === this._lastLeaderboardHash) return;
+    this._lastLeaderboardHash = hash;
+
+    this._els.leaderboardList.innerHTML = entries.map((entry, idx) => `
+      <div class="leaderboard-row ${entry.isPlayer ? 'leaderboard-row-player' : ''}">
+        <div class="leaderboard-rank">#${idx + 1}</div>
+        <div class="leaderboard-main">
+          <div class="leaderboard-name">${entry.name}</div>
+          <div class="leaderboard-meta">${entry.meta}</div>
+        </div>
+        <div class="leaderboard-worth">${entry.netWorth.toLocaleString()}g</div>
+      </div>
+    `).join('');
+  }
+
+  _buildLeaderboardEntries() {
+    const playerName = (this._state.player.name ?? '').trim() || 'You';
+    const playerVehicles = this._vehicleMgr?.vehicles ?? [];
+    const entries = [{
+      id: 'player',
+      name: playerName,
+      isPlayer: true,
+      netWorth: this._estimateNetWorth(this._state.player.gold, playerVehicles),
+      meta: `${TIER_NAMES[this._state.player.tier]} • ${playerVehicles.length} vehicles`,
+    }];
+
+    const npcMerchants = this._state.npc?.merchants ?? [];
+    const npcVehicles = this._state.npc?.vehicles ?? [];
+    for (const merchant of npcMerchants) {
+      const merchantVehicles = npcVehicles.filter(vehicle => vehicle.ownerId === merchant.id);
+      entries.push({
+        id: merchant.id,
+        name: merchant.name,
+        isPlayer: false,
+        netWorth: this._estimateNetWorth(merchant.capital ?? 0, merchantVehicles),
+        meta: `${merchant.tier} merchant • ${this._cities.get(merchant.homeCityId)?.name ?? merchant.homeCityId} • ${merchantVehicles.length} vehicles`,
+      });
+    }
+
+    return entries.sort((a, b) => b.netWorth - a.netWorth).slice(0, 20);
+  }
+
+  _estimateNetWorth(liquidGold, vehicles) {
+    const vehicleValue = vehicles.reduce((sum, vehicle) => {
+      const baseValue = VEHICLE_TYPES[vehicle.typeId]?.cost ?? 0;
+      const cargoValue = Object.entries(vehicle.transport ?? {}).reduce(
+        (cargoSum, [goodId, qty]) => cargoSum + ((GOODS[goodId]?.basePrice ?? 0) * qty),
+        0
+      );
+      return sum + baseValue + cargoValue;
+    }, 0);
+    return Math.floor((liquidGold ?? 0) + vehicleValue);
   }
 
   _refreshCargoSidebar() {

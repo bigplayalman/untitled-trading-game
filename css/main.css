@@ -83,7 +83,8 @@ html, body {
   color: var(--brass-light);
 }
 
-#fleet-menu-panel {
+#fleet-menu-panel,
+#leaderboard-menu-panel {
   position: fixed;
   top: calc(var(--top-bar-h) + 6px);
   left: 50%;
@@ -97,6 +98,54 @@ html, body {
   border-radius: 8px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.55);
   z-index: 60;
+}
+
+#leaderboard-menu-panel {
+  width: min(560px, calc(100vw - 24px));
+}
+
+#leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(181,137,28,0.22);
+  border-radius: 6px;
+  background: rgba(0,0,0,0.12);
+}
+
+.leaderboard-row-player {
+  border-color: rgba(255,230,128,0.55);
+  background: rgba(181,137,28,0.12);
+}
+
+.leaderboard-rank {
+  color: var(--brass-light);
+  font-weight: bold;
+}
+
+.leaderboard-name {
+  color: var(--text-main);
+  font-weight: bold;
+}
+
+.leaderboard-meta {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.leaderboard-worth {
+  color: var(--text-bright);
+  font-weight: bold;
+  white-space: nowrap;
 }
 
 #player-info {

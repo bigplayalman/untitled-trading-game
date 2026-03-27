@@ -42,6 +42,7 @@ const ui = new UIManager(state, cities, market, timeMgr, player, bus);
 const vehicleUI = new VehicleUI(state, vehicleMgr, market, cities, player, bus);
 ui.setVehicleUI(vehicleUI);
 ui.setVehicleManager(vehicleMgr);
+ui.setNpcTradeManager(npcTradeMgr);
 
 const canvas = document.getElementById('game-map');
 const mapRenderer = new MapRenderer(canvas, cities, state, bus);
