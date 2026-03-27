@@ -324,15 +324,18 @@ export class UIManager {
       let tradeCell = '<td class="market-holdings">No docked vehicle selected.</td>';
       if (selectedVehicle) {
         const repGain  = gainFromTrade(good.category, sellPrice / (good.basePrice || 1), true);
+        const effectiveSellPrice = sellCheck.lockedToBuy
+          ? Math.max(1, Math.floor(sellPrice * (sellCheck.sellMultiplier ?? 1)))
+          : sellPrice;
         const sellMeta = sellCheck.ok
-          ? `${vehicleQty} on board`
+          ? `${vehicleQty} on board${sellCheck.lockedToBuy ? ` • locked to buy here • sells for ${effectiveSellPrice}g` : ''}`
           : `Need ${sellCheck.minRepSell} rep`;
         tradeCell = `<td>
           <div class="market-actions">
             <input type="number" id="market-qty-${good.id}" class="market-qty-input"
               value="1" min="1" max="${Math.max(buyMax, sellMax, 1)}">
             <button class="buy-btn btn-market-buy" data-good="${good.id}" ${buyMax <= 0 || locked ? 'disabled' : ''}>Buy</button>
-            <button class="sell-btn btn-market-sell" data-good="${good.id}" ${sellMax <= 0 || !sellCheck.ok ? 'disabled' : ''}>Sell</button>
+            <button class="sell-btn btn-market-sell" data-good="${good.id}" ${sellMax <= 0 ? 'disabled' : ''}>Sell</button>
           </div>
           <div class="market-holdings">${sellMeta}${sellCheck.ok && vehicleQty > 0 ? ` • +${repGain.toFixed(1)} rep` : ''}</div>
         </td>`;

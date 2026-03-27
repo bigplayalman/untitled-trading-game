@@ -197,7 +197,9 @@ export class VehicleUI {
             const good       = GOODS[goodId];
             const sellPrice  = city?.getSellPrice(goodId) ?? good?.basePrice ?? 0;
             const sellCheck  = canSell(rep, good ?? {});
-            const sellLocked = !sellCheck.ok;
+            const effectiveSellPrice = sellCheck.lockedToBuy
+              ? Math.max(1, Math.floor(sellPrice * (sellCheck.sellMultiplier ?? 1)))
+              : sellPrice;
 
             // Rep gain preview for sells
             const priceRatio  = sellPrice / (good?.basePrice || 1);
@@ -206,19 +208,9 @@ export class VehicleUI {
             const demandHigh  = priceRatio > 1.3;
             const repGainClass = demandHigh ? 'rep-gain-high' : 'rep-gain';
 
-            if (sellLocked) {
-              return `<div class="transport-row transport-row-locked">
-                <span class="tr-good">🔒 ${good?.icon ?? ''} ${good?.name ?? goodId}
-                  <span class="tr-meta">${qty} on board • Requires ${sellCheck.minRepSell} rep to sell here</span>
-                </span>
-                <input type="number" class="transport-qty-input" value="${qty}" disabled>
-                <button class="sell-btn" disabled>Locked</button>
-              </div>`;
-            }
-
             return `<div class="transport-row">
               <span class="tr-good">${good?.icon ?? ''} ${good?.name ?? goodId}
-                <span class="tr-meta">${qty} on board • ${sellPrice}g each • ${good?.weight ?? 1}wt
+                <span class="tr-meta">${qty} on board • ${effectiveSellPrice}g each • ${good?.weight ?? 1}wt${sellCheck.lockedToBuy ? ' • locked-to-buy penalty' : ''}
                   <span class="${repGainClass}">${repGainStr}${demandHigh ? ' ▲' : ''}</span>
                 </span>
               </span>

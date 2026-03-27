@@ -3,7 +3,7 @@
  * Handles player buy/sell transactions.
  *
  * All goods flow through vehicles — the player has no personal inventory.
- * Reputation gates which goods can be bought or sold at each city.
+ * Reputation gates which goods can be bought at each city.
  * Selling high-demand goods gives boosted reputation gain.
  * Higher reputation gives a sell price bonus.
  */
@@ -118,15 +118,9 @@ export class Market {
     if (vehicle.isTravelling) return { ok: false, message: `${vehicle.name} is currently en route.` };
     if (vehicle.currentCityId !== cityId) return { ok: false, message: `${vehicle.name} is not at this city.` };
 
-    // Reputation gate (sell threshold = half of buy threshold)
+    // Selling is always allowed, but locked-to-buy goods pay less
     const rep    = getRepForCity(this._state, cityId);
     const repChk = canSell(rep, good);
-    if (!repChk.ok) {
-      return {
-        ok: false,
-        message: `Need ${repChk.minRepSell} reputation to sell ${good.name} here. You have ${Math.floor(rep)}.`,
-      };
-    }
 
     // Transport check
     const onboard = vehicle.transport[goodId] ?? 0;
@@ -136,9 +130,12 @@ export class Market {
 
     // Base sell price × reputation bonus
     const baseEarned  = city.playerSells(goodId, qty);
+    const lockPenalty = repChk.sellMultiplier ?? 1;
     const repBonus    = getSellBonus(rep);
-    const earned      = Math.round(baseEarned * repBonus);
-    const bonusEarned = earned - baseEarned;
+    const adjustedBase = Math.round(baseEarned * lockPenalty);
+    const earned      = Math.round(adjustedBase * repBonus);
+    const penaltyLost = baseEarned - adjustedBase;
+    const bonusEarned = earned - adjustedBase;
 
     // Demand-scaled reputation gain
     const currentPrice = city.getSellPrice(goodId);
@@ -167,9 +164,12 @@ export class Market {
       priceEach: Math.round(earned / qty),
       priceRatio,
       repGain,
+      lockedToBuy: repChk.lockedToBuy,
+      penaltyLost,
     });
 
+    const penaltyStr = repChk.lockedToBuy ? ` (-${penaltyLost}g locked-item penalty)` : '';
     const bonusStr = bonusEarned > 0 ? ` (+${bonusEarned}g rep bonus)` : '';
-    return { ok: true, message: `Sold ${qty}x ${good.name} for ${earned}g${bonusStr}.`, earned };
+    return { ok: true, message: `Sold ${qty}x ${good.name} for ${earned}g${penaltyStr}${bonusStr}.`, earned };
   }
 }

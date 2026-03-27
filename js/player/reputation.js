@@ -51,10 +51,14 @@ export function canBuy(rep, good) {
 }
 
 export function canSell(rep, good) {
-  const minRepSell = good.minRepSell ?? 0;
-  if (rep >= minRepSell) return { ok: true, minRepSell, tierName: '' };
-  const tier = REP_TIERS.slice().reverse().find(entry => entry.min <= minRepSell) ?? REP_TIERS[0];
-  return { ok: false, minRepSell, tierName: tier.name };
+  const buyAccess = canBuy(rep, good);
+  return {
+    ok: true,
+    minRepSell: good.minRepSell ?? 0,
+    tierName: buyAccess.ok ? '' : buyAccess.tierName,
+    lockedToBuy: !buyAccess.ok,
+    sellMultiplier: buyAccess.ok ? 1 : 0.5,
+  };
 }
 
 export function getRepForCity(state, cityId) {

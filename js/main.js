@@ -158,11 +158,12 @@ bus.subscribe('market:buy', ({ cityId, goodId, qty, cost, vehicleId }) => {
   }
 });
 
-bus.subscribe('market:sell', ({ cityId, goodId, qty, earned, bonusEarned, priceRatio }) => {
+bus.subscribe('market:sell', ({ cityId, goodId, qty, earned, bonusEarned, priceRatio, lockedToBuy, penaltyLost }) => {
   const good = GOODS[goodId];
+  const penaltyStr = lockedToBuy ? ` (-${penaltyLost}g)` : '';
   const bonusStr = bonusEarned > 0 ? ` (+${bonusEarned}g)` : '';
   const demandStr = priceRatio > 1.3 ? ' high demand' : '';
-  ui.addNotification(`Sold ${qty}x ${good?.name} for ${earned}g${bonusStr}${demandStr}`, 'good');
+  ui.addNotification(`Sold ${qty}x ${good?.name} for ${earned}g${penaltyStr}${bonusStr}${demandStr}`, 'good');
 
   const quest = getCidStarterQuest();
   if (!quest.completed && cityId === 'ironhaven' && goodId === 'wheat') {
