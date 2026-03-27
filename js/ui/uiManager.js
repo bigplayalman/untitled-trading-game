@@ -10,7 +10,7 @@
 import { GOODS }                              from '../economy/goods.js';
 import { TIER_NAMES }                         from '../engine/stateManager.js';
 import { getRepForCity, getRepTier,
-         getRepProgress, canBuy, canSell,
+         getRepProgress,
          gainFromTrade }                      from '../player/reputation.js';
 
 export class UIManager {
@@ -56,9 +56,6 @@ export class UIManager {
       marketTradeBar:  document.getElementById('market-trade-bar'),
       fleetMenuPanel:  document.getElementById('fleet-menu-panel'),
       notifications:   document.getElementById('notifications'),
-      questTitle:      document.getElementById('quest-title'),
-      questText:       document.getElementById('quest-text'),
-      questProgress:   document.getElementById('quest-progress'),
       buildingsGrid:   document.getElementById('buildings-grid'),
       dialogue:        document.getElementById('dialogue-overlay'),
       dialogueSpeaker: document.getElementById('dialogue-speaker'),
@@ -276,21 +273,6 @@ export class UIManager {
       return;
     }
 
-    if (this._state.player.tier < 1) {
-      if (this._els.marketTradeBar) this._els.marketTradeBar.innerHTML = '';
-      this._els.marketBody.innerHTML = `
-        <tr>
-          <td colspan="8">
-            <div class="market-lock-panel">
-              <strong>Market Access Locked</strong>
-              <p>Cid has not yet put his trade papers in your hands. Until you enter the merchant class, guild trading remains closed to you.</p>
-            </div>
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
     const rep = getRepForCity(this._state, cityId);
     const vehiclesHere = this._vehicleMgr?.getVehiclesAt(cityId) ?? [];
     const selectedVehicle = this._resolveMarketVehicle(cityId, vehiclesHere);
@@ -305,43 +287,27 @@ export class UIManager {
       const priceClass = city.priceEngine.getPriceClass(good.id);
       const trendIcon  = trend === 'up' ? '▲' : trend === 'down' ? '▼' : '─';
 
-      const buyCheck  = canBuy(rep, good);
-      const locked    = !buyCheck.ok;
-      const rowClass  = locked ? 'market-row-locked' : '';
       const vehicleQty = selectedVehicle?.transport?.[good.id] ?? 0;
-      const sellCheck = canSell(rep, good);
       const canLoad   = selectedVehicle ? selectedVehicle.maxLoadable(good.id) : 0;
       const buyMax    = selectedVehicle ? Math.min(stock, canLoad) : 0;
       const sellMax   = selectedVehicle ? vehicleQty : 0;
 
-      let accessCell;
-      if (locked) {
-        accessCell = `<td class="access-locked">🔒 ${buyCheck.minRep} rep<br><small>${buyCheck.tierName}</small></td>`;
-      } else {
-        accessCell = `<td class="access-ok">✓</td>`;
-      }
-
       let tradeCell = '<td class="market-holdings">No docked vehicle selected.</td>';
       if (selectedVehicle) {
         const repGain  = gainFromTrade(good.category, sellPrice / (good.basePrice || 1), true);
-        const effectiveSellPrice = sellCheck.lockedToBuy
-          ? Math.max(1, Math.floor(sellPrice * (sellCheck.sellMultiplier ?? 1)))
-          : sellPrice;
-        const sellMeta = sellCheck.ok
-          ? `${vehicleQty} on board${sellCheck.lockedToBuy ? ` • locked to buy here • sells for ${effectiveSellPrice}g` : ''}`
-          : `Need ${sellCheck.minRepSell} rep`;
+        const sellMeta = `${vehicleQty} on board${vehicleQty > 0 ? ` • sells for ${sellPrice}g` : ''}`;
         tradeCell = `<td>
           <div class="market-actions">
             <input type="number" id="market-qty-${good.id}" class="market-qty-input"
               value="1" min="1" max="${Math.max(buyMax, sellMax, 1)}">
-            <button class="buy-btn btn-market-buy" data-good="${good.id}" ${buyMax <= 0 || locked ? 'disabled' : ''}>Buy</button>
+            <button class="buy-btn btn-market-buy" data-good="${good.id}" ${buyMax <= 0 ? 'disabled' : ''}>Buy</button>
             <button class="sell-btn btn-market-sell" data-good="${good.id}" ${sellMax <= 0 ? 'disabled' : ''}>Sell</button>
           </div>
-          <div class="market-holdings">${sellMeta}${sellCheck.ok && vehicleQty > 0 ? ` • +${repGain.toFixed(1)} rep` : ''}</div>
+          <div class="market-holdings">${sellMeta}${vehicleQty > 0 ? ` • +${repGain.toFixed(1)} rep` : ''}</div>
         </td>`;
       }
 
-      return `<tr class="${rowClass}">
+      return `<tr>
         <td>${good.icon} ${good.name}</td>
         <td><span class="cat-badge cat-${good.category}">${good.category}</span></td>
         <td class="price-${priceClass}">${price}g
@@ -350,7 +316,6 @@ export class UIManager {
         <td>${stock}</td>
         <td><span class="wt-badge">${good.weight} wt</span></td>
         <td class="trend-${trend}">${trendIcon}</td>
-        ${accessCell}
         ${tradeCell}
       </tr>`;
     }).join('');
@@ -771,24 +736,8 @@ export class UIManager {
     });
   }
 
-  setQuestDisplay(title, text, goals) {
-    this._els.questTitle.textContent  = title;
-    this._els.questText.textContent   = text;
-    this._els.questProgress.innerHTML = goals.map(g =>
-      `<div class="quest-goal ${g.done ? 'done' : ''}">${g.label}</div>`
-    ).join('');
-  }
-
   init() {
     this._refreshCargoSidebar();
     this._refreshTopBar();
-    this.setQuestDisplay(
-      'A Strange New World',
-      'You have arrived in Oumzy with nothing. Use your vehicle to trade.',
-      [
-        { label: 'Earn 50g from trading', done: false },
-        { label: 'Visit 3 different cities', done: false },
-      ]
-    );
   }
 }

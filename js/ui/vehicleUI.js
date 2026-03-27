@@ -12,8 +12,7 @@
 import { GOODS }                                from '../economy/goods.js';
 import { VEHICLE_TYPES }                        from '../player/vehicles.js';
 import { CONNECTIONS }                          from '../world/worldMap.js';
-import { canBuy, canSell, getRepForCity,
-         gainFromTrade, getRepTier }             from '../player/reputation.js';
+import { gainFromTrade, getRepTier }            from '../player/reputation.js';
 
 export class VehicleUI {
   /**
@@ -155,26 +154,11 @@ export class VehicleUI {
       const city = this._cities.get(cityId);
 
       // ── Buy section (city market → vehicle) ──────────────────
-      const rep = getRepForCity(this._state, cityId);
-
       const buyRows = Object.values(GOODS).map(good => {
         const stock      = city?.inventory[good.id] ?? 0;
         const price      = city?.getBuyPrice(good.id) ?? good.basePrice;
-        const buyCheck   = canBuy(rep, good);
-        const locked     = !buyCheck.ok;
         const canLoad    = v.maxLoadable(good.id);
         const maxQty     = Math.min(stock, canLoad);
-
-        if (locked) {
-          // Show dimmed locked row — player can see what they're working towards
-          return `<div class="transport-row transport-row-locked">
-            <span class="tr-good">🔒 ${good.icon} ${good.name}
-              <span class="tr-meta">Requires ${buyCheck.minRep} rep (${buyCheck.tierName}) • ${good.weight}wt</span>
-            </span>
-            <input type="number" class="transport-qty-input" value="1" disabled>
-            <button class="buy-btn" disabled>Locked</button>
-          </div>`;
-        }
 
         if (stock === 0) return ''; // skip out-of-stock unlocked goods
         return `<div class="transport-row">
@@ -196,10 +180,6 @@ export class VehicleUI {
         : transportEntries.map(([goodId, qty]) => {
             const good       = GOODS[goodId];
             const sellPrice  = city?.getSellPrice(goodId) ?? good?.basePrice ?? 0;
-            const sellCheck  = canSell(rep, good ?? {});
-            const effectiveSellPrice = sellCheck.lockedToBuy
-              ? Math.max(1, Math.floor(sellPrice * (sellCheck.sellMultiplier ?? 1)))
-              : sellPrice;
 
             // Rep gain preview for sells
             const priceRatio  = sellPrice / (good?.basePrice || 1);
@@ -210,7 +190,7 @@ export class VehicleUI {
 
             return `<div class="transport-row">
               <span class="tr-good">${good?.icon ?? ''} ${good?.name ?? goodId}
-                <span class="tr-meta">${qty} on board • ${effectiveSellPrice}g each • ${good?.weight ?? 1}wt${sellCheck.lockedToBuy ? ' • locked-to-buy penalty' : ''}
+                <span class="tr-meta">${qty} on board • ${sellPrice}g each • ${good?.weight ?? 1}wt
                   <span class="${repGainClass}">${repGainStr}${demandHigh ? ' ▲' : ''}</span>
                 </span>
               </span>

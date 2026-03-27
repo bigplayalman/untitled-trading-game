@@ -82,11 +82,10 @@ export const INITIAL_STATE = {
   vehicles: [],
   routes: [],
   cities: {},
-  milestones: {
-    completed: [],
-    active: 'intro_01',
+  npc: {
+    merchants: [],
+    vehicles: [],
   },
-  flags: {},
   stats: {
     totalGoldEarned: 0,
     totalTrades: 0,

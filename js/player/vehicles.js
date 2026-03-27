@@ -29,6 +29,9 @@ export class Vehicle {
     this.icon = def.icon;
     this.speed = def.speed;
     this.capacity = def.capacity;
+    this.ownerType = 'player';
+    this.ownerId = null;
+    this.ownerName = '';
 
     this.transport = {};
     this.transportCostBasis = {};
@@ -43,6 +46,7 @@ export class Vehicle {
     this.routeQueue = [];
     this.progress = 0;
     this.etaHours = 0;
+    this.aiCooldownHours = 0;
   }
 
   get transportUsed() {
@@ -163,6 +167,9 @@ export class Vehicle {
       icon: this.icon,
       speed: this.speed,
       capacity: this.capacity,
+      ownerType: this.ownerType,
+      ownerId: this.ownerId,
+      ownerName: this.ownerName,
       transport: { ...this.transport },
       transportCostBasis: { ...this.transportCostBasis },
       status: this.status,
@@ -174,6 +181,7 @@ export class Vehicle {
       distanceTravelled: this.distanceTravelled,
       progress: this.progress,
       etaHours: this.etaHours,
+      aiCooldownHours: this.aiCooldownHours,
       routeQueue: [...this.routeQueue],
     };
   }
@@ -184,6 +192,10 @@ export class Vehicle {
     if (!vehicle.transport && data.cargo) vehicle.transport = data.cargo;
     if (!vehicle.transport) vehicle.transport = {};
     if (!vehicle.transportCostBasis) vehicle.transportCostBasis = {};
+    vehicle.ownerType = data.ownerType ?? 'player';
+    vehicle.ownerId = data.ownerId ?? null;
+    vehicle.ownerName = data.ownerName ?? '';
+    vehicle.aiCooldownHours = data.aiCooldownHours ?? 0;
     return vehicle;
   }
 }

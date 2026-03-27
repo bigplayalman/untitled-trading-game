@@ -18,6 +18,7 @@ const CONNECTION_WIDTH     = 2;
 const LABEL_FONT           = '11px "Courier New", monospace';
 const BG_COLOR             = '#0d1117';
 const GRID_COLOR           = 'rgba(255,255,255,0.03)';
+const NPC_VISIBILITY_RADIUS = 90;
 
 export class MapRenderer {
   constructor(canvas, cities, state, bus) {
@@ -27,6 +28,7 @@ export class MapRenderer {
     this._state      = state;
     this._bus        = bus;
     this._vehicleMgr = null;
+    this._npcTradeMgr = null;
 
     this._selected   = null;   // selected city id (normal mode)
     this._selectedVehicleId = null;
@@ -57,6 +59,7 @@ export class MapRenderer {
   }
 
   setVehicleManager(mgr) { this._vehicleMgr = mgr; }
+  setNpcTradeManager(mgr) { this._npcTradeMgr = mgr; }
   setSelected(cityId)    { this._selected = cityId; }
   setSelectedVehicle(vehicleId) { this._selectedVehicleId = vehicleId; }
 
@@ -146,6 +149,19 @@ export class MapRenderer {
     if (this._vehicleMgr) {
       for (const vehicle of this._vehicleMgr.getTravelling()) {
         this._drawVehicle(ctx, vehicle, W, H);
+      }
+    }
+
+    if (this._npcTradeMgr) {
+      for (const vehicle of this._npcTradeMgr.vehicles) {
+        if (!vehicle.isTravelling && this._canSeeNpcVehicle(vehicle, W, H)) {
+          this._drawNpcIdleVehicleDot(ctx, vehicle, W, H);
+        }
+      }
+      for (const vehicle of this._npcTradeMgr.getTravelling()) {
+        if (this._canSeeNpcVehicle(vehicle, W, H)) {
+          this._drawNpcVehicle(ctx, vehicle, W, H);
+        }
       }
     }
 
@@ -334,6 +350,116 @@ export class MapRenderer {
     ctx.fillText(vehicle.name, x, y + 18);
   }
 
+  _drawNpcIdleVehicleDot(ctx, vehicle, W, H) {
+    const city = this._cities.get(vehicle.currentCityId);
+    if (!city) return;
+
+    const pos = this._toScreen(city.x, city.y, W, H);
+    const vehicles = this._npcTradeMgr?.getVehiclesAt(city.id) ?? [];
+    const idx = vehicles.indexOf(vehicle);
+    const offsetX = (idx - (vehicles.length - 1) / 2) * 8;
+    const vx = pos.x + offsetX;
+    const vy = pos.y + CITY_RADIUS + 10;
+
+    ctx.beginPath();
+    ctx.arc(vx, vy, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(120,190,255,0.78)';
+    ctx.fill();
+  }
+
+  _drawNpcVehicle(ctx, vehicle, W, H) {
+    const from = this._cities.get(vehicle.fromCityId);
+    const to = this._cities.get(vehicle.toCityId);
+    if (!from || !to) return;
+
+    const p1 = this._toScreen(from.x, from.y, W, H);
+    const p2 = this._toScreen(to.x, to.y, W, H);
+    const t = vehicle.progress ?? 0;
+    const x = p1.x + (p2.x - p1.x) * t;
+    const y = p1.y + (p2.y - p1.y) * t;
+
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(120,190,255,0.92)';
+    ctx.fill();
+  }
+
+  _canSeeNpcVehicle(vehicle, W, H) {
+    const npcPos = this._getVehicleScreenPosition(vehicle, W, H, this._npcTradeMgr);
+    if (!npcPos) return false;
+
+    const presenceCityIds = this._getPlayerPresenceCityIds();
+    if (!vehicle.isTravelling && presenceCityIds.has(vehicle.currentCityId)) {
+      return true;
+    }
+
+    for (const cityId of presenceCityIds) {
+      const city = this._cities.get(cityId);
+      if (!city) continue;
+      const pos = this._toScreen(city.x, city.y, W, H);
+      if (this._distance(npcPos, pos) <= NPC_VISIBILITY_RADIUS) return true;
+    }
+
+    if (!this._vehicleMgr) return false;
+    for (const playerVehicle of this._vehicleMgr.vehicles) {
+      const playerPos = this._getVehicleScreenPosition(playerVehicle, W, H, this._vehicleMgr);
+      if (playerPos && this._distance(npcPos, playerPos) <= NPC_VISIBILITY_RADIUS) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  _getPlayerPresenceCityIds() {
+    const presence = new Set([this._state.player.currentCityId]);
+
+    if (this._vehicleMgr) {
+      for (const vehicle of this._vehicleMgr.vehicles) {
+        if (vehicle.currentCityId) presence.add(vehicle.currentCityId);
+      }
+    }
+
+    for (const [cityId, city] of this._cities) {
+      if ((city.playerBuildings?.length ?? 0) > 0) presence.add(cityId);
+    }
+
+    return presence;
+  }
+
+  _getVehicleScreenPosition(vehicle, W, H, manager) {
+    if (!vehicle) return null;
+
+    if (vehicle.isTravelling) {
+      const from = this._cities.get(vehicle.fromCityId);
+      const to = this._cities.get(vehicle.toCityId);
+      if (!from || !to) return null;
+      const p1 = this._toScreen(from.x, from.y, W, H);
+      const p2 = this._toScreen(to.x, to.y, W, H);
+      const t = vehicle.progress ?? 0;
+      return {
+        x: p1.x + (p2.x - p1.x) * t,
+        y: p1.y + (p2.y - p1.y) * t,
+      };
+    }
+
+    const city = this._cities.get(vehicle.currentCityId);
+    if (!city) return null;
+    const pos = this._toScreen(city.x, city.y, W, H);
+    const vehicles = manager?.getVehiclesAt(vehicle.currentCityId) ?? [];
+    const idx = vehicles.indexOf(vehicle);
+    const spacing = manager === this._npcTradeMgr ? 8 : 16;
+    const yOffset = manager === this._npcTradeMgr ? CITY_RADIUS + 10 : -CITY_RADIUS - 16;
+    return {
+      x: pos.x + (idx - (vehicles.length - 1) / 2) * spacing,
+      y: pos.y + yOffset,
+    };
+  }
+
+  _distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
   // ── Hit testing ───────────────────────────────────────────────
 
   _getCityAt(mx, my) {
@@ -406,9 +532,14 @@ export class MapRenderer {
     if (cityId) {
       const city   = this._cities.get(cityId);
       const docked = this._vehicleMgr?.getVehiclesAt(cityId) ?? [];
+      const npcPresence = this._npcTradeMgr?.getCityPresence(cityId) ?? null;
       let tip = `<strong>${city.name}</strong><br>Pop: ${city.population.toLocaleString()}<br>Wealth: ${city.wealth.toLocaleString()}g`;
       if (docked.length > 0) {
         tip += `<br><span style="color:#ffe680">🚂 ${docked.map(v => v.name).join(', ')}</span>`;
+      }
+      const canSeeCityNpcTrade = npcPresence && this._getPlayerPresenceCityIds().has(cityId);
+      if (canSeeCityNpcTrade && npcPresence.merchants > 0) {
+        tip += `<br><span style="color:#78beff">NPC trade: ${npcPresence.merchants} firms • ${npcPresence.dockedVehicles} docked • ${npcPresence.movingVehicles} moving</span>`;
       }
       if (!this._dispatchMode && this._selectedVehicleId) {
         const selectedVehicle = this._vehicleMgr?.getVehicle(this._selectedVehicleId);

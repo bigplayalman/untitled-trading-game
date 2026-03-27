@@ -3,15 +3,15 @@
  * Manages in-game time: days, months, years.
  * Speed multiplier controls how fast game time advances.
  *
- * At speed 1x: 1 real second = 1 game hour  => 1 game day = 24 real seconds
+ * At speed 1x: 1 game hour = 8 real seconds  => 1 game day = 192 real seconds
  * TICK_MS = 200ms real => 0.2s real per tick
- * At 1x: 0.2 real-sec * 1 game-hr/real-sec = 0.2 game hours per tick
- * => 120 ticks per game day at 1x
+ * At 1x: 0.2 real-sec * 0.125 game-hr/real-sec = 0.025 game hours per tick
+ * => 960 ticks per game day at 1x
  */
 
 export const SPEEDS = { 0: 0, 1: 1, 2: 2, 5: 5 };
 
-const REAL_MS_PER_GAME_HOUR_AT_1X = 1000; // 1 real second = 1 game hour
+const REAL_MS_PER_GAME_HOUR_AT_1X = 8000;
 
 export class TimeManager {
   constructor(eventBus) {
@@ -46,11 +46,15 @@ export class TimeManager {
     this._bus.publish('time:speedChange', { speed: this.speed });
   }
 
+  getGameHoursElapsed(realDeltaMs) {
+    if (this._paused) return 0;
+    return (realDeltaMs * this._speed) / REAL_MS_PER_GAME_HOUR_AT_1X;
+  }
+
   /** Called every simulation tick with real delta in ms */
   update(realDeltaMs) {
-    if (this._paused) return;
-
-    const gameHoursElapsed = (realDeltaMs * this._speed) / REAL_MS_PER_GAME_HOUR_AT_1X;
+    const gameHoursElapsed = this.getGameHoursElapsed(realDeltaMs);
+    if (gameHoursElapsed <= 0) return;
     this._hour += gameHoursElapsed;
 
     while (this._hour >= 24) {
